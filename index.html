@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星空靈感塔羅 - hsinwen555 專屬版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { 
+            --main: #4facfe; --bg: #000428; --card: #002b5b; --gold: #ffd700; 
+            --upright: #00f2fe; --reversed: #ff758c;
+        }
+        body { 
+            background: radial-gradient(circle at center, #001f3f 0%, #000428 100%); 
+            color: #fff; font-family: 'Segoe UI', "Microsoft JhengHei", sans-serif; 
+            text-align: center; padding: 20px; margin: 0; min-height: 100vh; 
+        }
+        .menu { 
+            margin: 20px auto; background: rgba(255,255,255,0.05); 
+            padding: 15px; border-radius: 15px; backdrop-filter: blur(10px); 
+            border: 1px solid rgba(79,172,254,0.3); max-width: 90%;
+        }
+        select { padding: 10px; border-radius: 8px; background: #001529; color: white; border: 1px solid var(--main); }
+        .board { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; perspective: 1000px; padding: 20px 0; }
+        .card-slot { width: 100px; height: 170px; position: relative; cursor: pointer; }
+        .inner { position: relative; width: 100%; height: 100%; transition: transform 0.8s; transform-style: preserve-3d; }
+        .card-slot.flipped .inner { transform: rotateY(180deg); }
+        .front, .back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .back { background: var(--card); border: 2px solid var(--main); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: var(--main); }
+        .front { background: #fff; transform: rotateY(180deg); border: 2px solid var(--gold); color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .card-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); color: var(--gold); font-size: 10px; padding: 3px; }
+        .rev { transform: rotate(180deg); }
+        #report { margin: 20px auto; text-align: left; max-width: 600px; background: rgba(0, 15, 35, 0.9); padding: 20px; border-radius: 20px; border: 1px solid var(--main); display: none; }
+        .reading-item { margin-bottom: 15px; border-left: 3px solid var(--main); padding-left: 10px; }
+        button { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #000; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; margin: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h1>🌌 星空靈感塔羅</h1>
+    <div class="menu">
+        <select id="spreadType" onchange="initBoard()">
+            <option value="1">每日一抽</option>
+            <option value="3">聖三角 (過/現/未)</option>
+        </select>
+        <button onclick="initBoard()">開始洗牌</button>
+    </div>
+
+    <div id="capture-area">
+        <div class="board" id="board"></div>
+        <div id="report">
+            <h3 style="color:var(--main); border-bottom: 1px solid var(--main);">📜 星空解讀</h3>
+            <div id="details"></div>
+        </div>
+    </div>
+    <button id="download-btn" style="display:none; background:#6272a4; color:#fff;" onclick="saveScreenshot()">📸 保存截圖</button>
+
+    <script>
+        const majors = ["愚者", "魔術師", "女教皇", "皇后", "皇帝", "教皇", "戀人", "戰車", "力量", "隱士", "命運之輪", "正義", "倒吊人", "死神", "節制", "惡魔", "高塔", "星星", "月亮", "太陽", "審判", "世界"];
+        const suits = ["權杖", "聖杯", "寶劍", "錢幣"];
+        const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "侍者", "騎士", "皇后", "國王"];
+        let deck = [];
+        majors.forEach(n => deck.push({n, t:'Major'}));
+        suits.forEach(s => ranks.forEach(r => deck.push({n:s+r, t:'Minor'})));
+
+        function initBoard() {
+            const type = document.getElementById('spreadType').value;
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            document.getElementById('report').style.display = 'none';
+            document.getElementById('details').innerHTML = '';
+            let shuffled = [...deck].sort(() => Math.random() - 0.5);
+            let posNames = type === "1" ? ["當下啟示"] : ["過去", "現在", "未來"];
+
+            posNames.forEach(pos => {
+                const card = shuffled.pop();
+                const isRev = Math.random() > 0.3;
+                const slot = document.createElement('div');
+                slot.className = 'card-slot';
+                slot.innerHTML = `
+                    <div class="inner">
+                        <div class="back">${pos}</div>
+                        <div class="front">
+                            <div class="${isRev?'rev':''}">${card.n}</div>
+                            <div class="card-label">${card.n}${isRev?'(逆)':'(正)'}</div>
+                        </div>
+                    </div>`;
+                slot.onclick = () => {
+                    if(!slot.classList.contains('flipped')) {
+                        slot.classList.add('flipped');
+                        document.getElementById('report').style.display = 'block';
+                        document.getElementById('download-btn').style.display = 'inline-block';
+                        const color = isRev ? "var(--reversed)" : "var(--upright)";
+                        document.getElementById('details').innerHTML += `
+                            <div class="reading-item" style="border-left-color:${color}">
+                                <strong style="color:var(--gold)">【${pos}】${card.n} ${isRev?'逆位':'正位'}</strong><br>
+                                <span style="font-size:13px;">${isRev?'當前能量受阻，請靜心思考。':'能量正向流動，適合採取行動。'}</span>
+                            </div>`;
+                    }
+                };
+                board.appendChild(slot);
+            });
+        }
+
+        async function saveScreenshot() {
+            const canvas = await html2canvas(document.getElementById('capture-area'), { useCORS: true, backgroundColor: '#000428' });
+            const link = document.createElement('a');
+            link.download = 'tarot.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        initBoard();
+    </script>
+</body>
+</html>
