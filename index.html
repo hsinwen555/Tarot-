@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星空塔羅 - 終極圖面修復版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --main: #4facfe; --bg: #000428; --gold: #ffd700; }
+        body { background: #000428; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 10px; }
+        .menu { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(79,172,254,0.3); }
+        .board { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 20px; }
+        .card-slot { width: 85px; height: 150px; cursor: pointer; perspective: 1000px; }
+        .inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s; transform-style: preserve-3d; }
+        .card-slot.flipped .inner { transform: rotateY(180deg); }
+        .front, .back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 8px; border: 2px solid var(--main); overflow: hidden; }
+        .back { background: #004e92; color: var(--main); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
+        .front { background: white; transform: rotateY(180deg); border-color: var(--gold); }
+        .front img { width: 100%; height: 100%; object-fit: cover; }
+        .reversed img { transform: rotate(180deg); }
+        #report { text-align: left; background: rgba(0,0,30,0.8); padding: 15px; border-radius: 10px; display: none; border: 1px solid var(--gold); }
+        .item { margin-bottom: 15px; border-left: 4px solid var(--gold); padding-left: 10px; font-size: 14px; line-height: 1.6; }
+        button { background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; padding: 10px 18px; border-radius: 20px; font-weight: bold; margin: 5px; cursor: pointer; }
+        #saveBtn { background: linear-gradient(135deg, #ffd700, #ffa500); display: none; }
+        select { padding: 8px; border-radius: 5px; background: #001529; color: white; border: 1px solid var(--main); width: 100%; max-width: 250px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h2>🌌 星空靈感塔羅</h2>
+    <div class="menu">
+        <select id="spreadType" onchange="init()">
+            <option value="1">✨ 每日一抽</option>
+            <option value="3">⌛ 聖三角 (過/現/未)</option>
+            <option value="rel">💞 關係解碼 (你/他/連結)</option>
+            <option value="soul">🧘 身心靈 (身/心/靈)</option>
+            <option value="choice">⚖️ 二選一 (A/B/建議)</option>
+            <option value="week">📅 週運勢 (事/財/情)</option>
+            <option value="star">⭐️ 五芒星 (本質/挑戰/建議)</option>
+        </select><br>
+        <button onclick="init()">洗牌啟程</button>
+    </div>
+    <div id="capture">
+        <div class="board" id="board"></div>
+        <div id="report"><h3 style="color:var(--gold); margin-top:0;">📜 啟示報告</h3><div id="details"></div></div>
+    </div>
+    <button id="saveBtn" onclick="save()">📸 保存占卜小卡</button>
+
+<script>
+    // 換成更穩定的圖庫來源
+    const baseImg = "https://raw.githubusercontent.com/CiroSantilli/universal-test-files/master/images/tarot/rider-waite-smith/";
+    const majorFiles = ["00-the-fool","01-the-magician","02-the-high-priestess","03-the-empress","04-the-emperor","05-the-hierophant","06-the-lovers","07-the-chariot","08-strength","09-the-hermit","10-wheel-of-fortune","11-justice","12-the-hanged-man","13-death","14-temperance","15-the-devil","16-the-tower","17-the-star","18-the-moon","19-the-sun","20-judgement","21-the-world"];
+    const majorLabels = ["愚者","魔術師","女教皇","皇后","皇帝","教皇","戀人","戰車","力量","隱士","命運之輪","正義","倒吊人","死神","節制","惡魔","高塔","星星","月亮","太陽","審判","世界"];
+    const majorDict = { "愚者":"信任直覺，開啟冒險。","魔術師":"資源具備，掌握主動。","女教皇":"沈靜觀察，聆聽直覺。","皇后":"能量豐盛，滋養感受。","皇帝":"理性領導，建立秩序。","教皇":"尋求指引，遵循傳統。","戀人":"心靈連結，關鍵抉擇。","戰車":"意志克服，勇往直前。","力量":"以柔克剛，控制慾望。","隱士":"內省探索，孤獨明燈。","命運之輪":"順應週期，接受轉折。","正義":"因果平衡，誠實面對。","倒吊人":"換個角度，沈思等待。","死神":"結束舊章，迎接重生。","節制":"和諧調和，尋找中庸。","惡魔":"警惕執著，認清枷鎖。","高塔":"震撼重組，瓦解虛假。","星星":"希望回升，平靜修復。","月亮":"迷霧不安，穿透潛意識。","太陽":"光明快樂，大放異彩。","審判":"甦醒覺悟，過去轉化。","世界":"圓滿結束，完美境界。" };
+
+    const suitNames = {"權杖":"wands","聖杯":"cups","寶劍":"swords","錢幣":"pentacles"};
+    const rankFiles = {"A":"ace","2":"02","3":"03","4":"04","5":"05","6":"06","7":"07","8":"08","9":"09","10":"10","侍者":"page","騎士":"knight","皇后":"queen","國王":"king"};
+    const suitDesc = {"權杖":"行動與熱情","聖杯":"情感與心靈","寶劍":"邏輯與思考","錢幣":"物質與財務穩定"};
+    const rankDesc = {"A":"代表開端與潛力。","2":"代表權衡與選擇。","3":"代表初步成果與合作。","4":"代表穩固與守成。","5":"代表挑戰與損失。","6":"代表和諧與回饋。","7":"代表防禦與評估。","8":"代表速度與努力。","9":"代表成就與收穫。","10":"代表圓滿與傳承。","侍者":"代表消息與學習。","騎士":"代表衝勁與執行。","皇后":"代表包容與直覺。","國王":"代表權威與經驗。"};
+
+    let deck = [];
+    majorLabels.forEach((name, i) => deck.push({ name, img: `${baseImg}${majorFiles[i]}.jpg`, type:'M' }));
+    Object.keys(suitNames).forEach(s => Object.keys(rankFiles).forEach(r => {
+        deck.push({ name: s+r, img: `${baseImg}${suitNames[s]}-${rankFiles[r]}.jpg`, type:'m', suit:s, rank:r });
+    }));
+
+    const spreads = { "1":["啟示"],"3":["過去","現在","未來"],"rel":["你","他","連結"],"soul":["身","心","靈"],"choice":["方案A","方案B","指引"],"week":["事業","財富","情感"],"star":["本質","挑戰","策略","環境","結果"] };
+
+    function init() {
+        const type = document.getElementById('spreadType').value;
+        const b = document.getElementById('board');
+        b.innerHTML = ''; document.getElementById('report').style.display='none';
+        document.getElementById('details').innerHTML=''; document.getElementById('saveBtn').style.display='none';
+        let shuf = [...deck].sort(() => Math.random() - 0.5);
+        spreads[type].forEach(pos => {
+            const card = shuf.pop();
+            const isRev = Math.random() > 0.35;
+            const slot = document.createElement('div');
+            slot.className = 'card-slot';
+            slot.innerHTML = `<div class="inner"><div class="back">${pos}</div><div class="front ${isRev?'reversed':''}"><img src="${card.img}" onerror="this.src='https://via.placeholder.com/90x155?text=${card.name}'"></div></div>`;
+            slot.onclick = () => {
+                if(!slot.classList.contains('flipped')) {
+                    slot.classList.add('flipped');
+                    showReading(pos, card, isRev);
+                    if(document.querySelectorAll('.flipped').length === spreads[type].length) document.getElementById('saveBtn').style.display='inline-block';
+                }
+            };
+            b.appendChild(slot);
+        });
+    }
+
+    function showReading(p, c, r) {
+        document.getElementById('report').style.display='block';
+        let main = c.type === 'M' ? majorDict[c.name] : `這張牌關於「${suitDesc[c.suit]}」。${rankDesc[c.rank]}`;
+        let sub = r ? "（逆位：能量受阻或過度，建議回頭檢視。）" : "（正位：能量正盛，請順勢而為。）";
+        document.getElementById('details').innerHTML += `<div class="item"><b>【${p}】${c.name} (${r?'逆':'正'})</b><br>✦ ${main}<br>✦ ${sub}</div>`;
+    }
+
+    async function save() {
+        const canvas = await html2canvas(document.getElementById('capture'), {backgroundColor:'#000428', useCORS: true, allowTaint: true});
+        const link = document.createElement('a'); link.download='tarot.png'; link.href=canvas.toDataURL(); link.click();
+    }
+    init();
+</script>
+</body>
+</html>
