@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星空靈感塔羅 - 深度解讀版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --main: #4facfe; --bg: #000428; --card: #004e92; --gold: #ffd700; }
+        body { background: radial-gradient(circle at center, #004e92 0%, #000428 100%); color: #fff; font-family: 'Segoe UI', "Microsoft JhengHei", sans-serif; text-align: center; padding: 20px; margin: 0; min-height: 100vh; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .menu { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; margin-bottom: 20px; border: 1px solid rgba(79,172,254,0.3); backdrop-filter: blur(10px); }
+        #capture-area { padding: 20px; border-radius: 20px; background: transparent; }
+        .board { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; perspective: 1000px; margin: 20px 0; }
+        .card-slot { width: 95px; height: 165px; cursor: pointer; }
+        .inner { position: relative; width: 100%; height: 100%; transition: transform 0.8s; transform-style: preserve-3d; }
+        .card-slot.flipped .inner { transform: rotateY(180deg); }
+        .front, .back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 10px; border: 2px solid var(--main); }
+        .back { background: var(--card); display: flex; align-items: center; justify-content: center; color: var(--main); font-weight: bold; font-size: 14px; text-align: center; padding: 5px; }
+        .front { background: white; transform: rotateY(180deg); color: #004e92; display: flex; align-items: center; justify-content: center; font-weight: bold; border-color: var(--gold); text-align: center; padding: 8px; font-size: 15px; }
+        .reversed { transform: rotateY(180deg) rotateZ(180deg); }
+        #report { margin-top: 25px; background: rgba(0,10,30,0.85); padding: 25px; border-radius: 20px; display: none; text-align: left; line-height: 1.8; border: 1px solid var(--gold); }
+        .reading-item { margin-bottom: 20px; border-left: 4px solid var(--gold); padding-left: 15px; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 0 10px 10px 0; }
+        button { background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; padding: 12px 25px; border-radius: 30px; font-weight: bold; cursor: pointer; color: #000; font-size: 16px; margin: 10px 5px; }
+        .save-btn { background: linear-gradient(135deg, #ffd700, #ffa500); display: none; }
+        select { padding: 10px; border-radius: 8px; background: #001529; color: white; border: 1px solid var(--main); font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌌 星空靈感塔羅</h1>
+        <div class="menu">
+            <select id="spreadType" onchange="initBoard()">
+                <option value="1">✨ 每日一抽</option>
+                <option value="3">⌛ 聖三角 (過/現/未)</option>
+                <option value="rel">💞 關係解碼 (你/他/連結)</option>
+                <option value="soul">🧘 身心靈 (身/心/靈)</option>
+            </select>
+            <button onclick="initBoard()">重新洗牌</button>
+        </div>
+        <div id="capture-area">
+            <div class="board" id="board"></div>
+            <div id="report"><h3 style="color:var(--gold); border-bottom: 1px solid rgba(255,215,0,0.3); padding-bottom: 10px;">📜 星辰的私語</h3><div id="details"></div></div>
+        </div>
+        <button id="saveBtn" class="save-btn" onclick="saveAsImage()">📸 保存占卜小卡</button>
+    </div>
+
+    <script>
+        const cardMeanings = {
+            "愚者": "開始新旅程。勇敢前行，宇宙會在你腳下鋪路。",
+            "魔術師": "你具備所有成功的條件。運用你的創意與意志吧。",
+            "女教皇": "安靜下來聆聽直覺。答案就在你的內心深處。",
+            "皇后": "豐富與滋養的時刻。享受感官的美好，讓愛自然流動。",
+            "皇帝": "建立秩序與結構。理性的力量會帶你走向穩定。",
+            "教皇": "尋求專業指引或心靈導師。現在適合學習與反思。",
+            "戀人": "跟隨你的心。選擇讓你感到完整與快樂的方向。",
+            "戰車": "保持專注與決心。克服內外障礙，勝利就在前方。",
+            "力量": "溫柔比強大更有力。用耐心與愛心馴服心中的焦慮。",
+            "隱士": "向內探索的時刻。在獨處中，你會找到清晰的真理。",
+            "命運之輪": "順應變動的週期。這是一個重要的轉折與新機會。",
+            "正義": "做出公平的決定。真相會大白，請秉持正直與良知。",
+            "倒吊人": "換個角度看世界。暫時的停滯是為了更深刻的覺醒。",
+            "死神": "舊階段的結束。勇敢放手，為新生命騰出成長空間。",
+            "節制": "融合與平衡。在混亂中找到穩定的節奏與協調。",
+            "惡魔": "看清楚你的束縛。慾望或慣性並非牢籠，鑰匙就在手邊。",
+            "高塔": "震撼與重建。雖然突發，但這將摧毀虛假的保護殼。",
+            "星星": "希望就在黎明前。最黑暗的時刻已過，請保持信心。",
+            "月亮": "穿過迷霧與不安。雖然未來模糊，但直覺會指引你。",
+            "太陽": "純粹的快樂與成功。大膽展現你的光芒，迎接勝利。",
+            "審判": "重生的召喚。過去的經驗轉化成智慧，迎接新生活。",
+            "世界": "圓滿與完成。一個重要的里程碑已經達成，恭喜你。"
+        };
+
+        const suits = ["權杖", "聖杯", "寶劍", "錢幣"];
+        const elementMsg = { "權杖": "行動與熱情", "聖杯": "情感與心靈", "寶劍": "邏輯與思考", "錢幣": "物質與穩定" };
+        const rankMeanings = {
+            "A": "代表事物的起源、潛力與純粹的開始。",
+            "2": "代表選擇、平衡或是兩者間的互動。",
+            "3": "代表初步的成果、擴張與團隊合作。",
+            "4": "代表穩定、結構，有時也象徵固守現狀。",
+            "5": "代表變動、挑戰或是利益上的衝突。",
+            "6": "代表和諧、分享，或是度過難關後的平靜。",
+            "7": "代表防禦、堅持或是內在的自我評估。",
+            "8": "代表速度、效率，或是持續不斷的努力。",
+            "9": "代表豐盛的頂點，或是即將完成前的壓力。",
+            "10": "代表一個循環的極致，或是某種結果的顯現。",
+            "侍者": "代表新的訊息、學習機會或年輕的創意。",
+            "騎士": "代表快速的變動、衝勁與執行的能量。",
+            "皇后": "代表成熟的情感、直覺與溫柔的掌控。",
+            "國王": "代表穩定的權威、領導力與豐富的經驗。"
+        };
+
+        const cards = Object.keys(cardMeanings);
+        suits.forEach(s => Object.keys(rankMeanings).forEach(r => cards.push(s+r)));
+
+        const spreads = { "1": ["當下啟示"], "3": ["過去", "現在", "未來"], "rel": ["你", "他", "連結"], "soul": ["身", "心", "靈"] };
+
+        function initBoard() {
+            const type = document.getElementById('spreadType').value;
+            const board = document.getElementById('board');
+            board.innerHTML = ''; document.getElementById('report').style.display = 'none';
+            document.getElementById('details').innerHTML = '';
+            document.getElementById('saveBtn').style.display = 'none';
+            let shuffled = [...cards].sort(() => Math.random() - 0.5);
+            let posNames = spreads[type];
+
+            posNames.forEach(pos => {
+                const name = shuffled.pop();
+                const isRev = Math.random() > 0.35;
+                const slot = document.createElement('div');
+                slot.className = 'card-slot';
+                slot.innerHTML = `<div class="inner"><div class="back">${pos}</div><div class="front ${isRev ? 'reversed' : ''}">${name}<br>${isRev?'(逆)':'(正)'}</div></div>`;
+                slot.onclick = () => {
+                    if(!slot.classList.contains('flipped')) {
+                        slot.classList.add('flipped');
+                        showReading(pos, name, isRev);
+                        if(document.querySelectorAll('.flipped').length === posNames.length) document.getElementById('saveBtn').style.display = 'inline-block';
+                    }
+                };
+                board.appendChild(slot);
+            });
+        }
+
+        function showReading(pos, card, isRev) {
+            document.getElementById('report').style.display = 'block';
+            let msg = cardMeanings[card] || "";
+            if (!msg) {
+                const suit = card.substring(0, 2);
+                const rank = card.substring(2);
+                msg = `這張牌關乎「${elementMsg[suit]}」。${rankMeanings[rank]} ${isRev ? '目前能量有些停滯或反向，建議回歸初衷。' : '這股能量正順暢運作，適合順勢而為。'}`;
+            }
+            if (isRev && cardMeanings[card]) msg = "（逆位）" + msg.replace("。", "，") + "但目前可能遇到內在的恐懼或環境的延遲。";
+            document.getElementById('details').innerHTML += `<div class="reading-item"><strong style="color:var(--main)">【${pos} · ${card}】</strong><br><span>${msg}</span></div>`;
+        }
+
+        async function saveAsImage() {
+            const area = document.getElementById('capture-area');
+            const canvas = await html2canvas(area, { backgroundColor: '#000428', scale: 2 });
+            const link = document.createElement('a'); link.download = '星空塔羅占卜小卡.png'; link.href = canvas.toDataURL(); link.click();
+        }
+        initBoard();
+    </script>
+</body>
+</html>
