@@ -3,142 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>星空靈感塔羅 - 78張全組</title>
+    <title>星空塔羅 - AI 靈魂對話</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        :root { 
-            --main: #4facfe; --bg: #000428; --card: #002b5b; --gold: #ffd700; 
-            --upright: #00f2fe; --reversed: #ff758c;
-        }
+        :root { --main: #4facfe; --bg: #000428; --card: #004e92; --gold: #ffd700; }
         body { 
-            background: radial-gradient(circle at center, #001f3f 0%, #000428 100%); 
+            background: radial-gradient(circle at center, #004e92 0%, #000428 100%); 
             color: #fff; font-family: 'Segoe UI', "Microsoft JhengHei", sans-serif; 
             text-align: center; padding: 20px; margin: 0; min-height: 100vh; 
         }
-        h1 { font-size: 1.8em; color: var(--main); text-shadow: 0 0 10px rgba(79,172,254,0.5); }
-        .menu { 
-            margin: 15px auto; background: rgba(255,255,255,0.05); 
-            padding: 15px; border-radius: 15px; backdrop-filter: blur(10px); 
-            border: 1px solid rgba(79,172,254,0.3); max-width: 90%;
-        }
-        select { padding: 10px; border-radius: 8px; background: #001529; color: white; border: 1px solid var(--main); font-size: 16px; }
-        .board { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; perspective: 1000px; padding: 20px 0; }
-        .card-slot { width: 90px; height: 160px; position: relative; cursor: pointer; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .setup-box { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; border: 1px solid rgba(79,172,254,0.3); margin-bottom: 20px; }
+        input { padding: 10px; border-radius: 8px; border: 1px solid var(--main); width: 85%; margin: 10px 0; background: #001529; color: #fff; }
+        .board { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; perspective: 1000px; margin: 20px 0; }
+        .card-slot { width: 95px; height: 165px; cursor: pointer; }
         .inner { position: relative; width: 100%; height: 100%; transition: transform 0.8s; transform-style: preserve-3d; }
         .card-slot.flipped .inner { transform: rotateY(180deg); }
-        .front, .back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .back { 
-            background: var(--card); border: 1px solid var(--main); 
-            display: flex; align-items: center; justify-content: center; 
-            font-size: 11px; text-align: center; color: var(--main); font-weight: bold;
-            background-image: radial-gradient(circle, #4facfe 1px, transparent 1px); background-size: 10px 10px;
-        }
-        .front { background: #fff; transform: rotateY(180deg); border: 2px solid var(--gold); color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; text-align: center; padding: 5px; box-sizing: border-box;}
-        .card-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); color: var(--gold); font-size: 9px; padding: 2px; }
-        .rev { transform: rotate(180deg); }
-        #report { margin: 20px auto; text-align: left; max-width: 600px; background: rgba(0, 15, 35, 0.9); padding: 20px; border-radius: 20px; border: 1px solid var(--main); display: none; }
-        .reading-item { margin-bottom: 15px; border-left: 3px solid var(--main); padding-left: 12px; animation: fadeIn 0.5s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        button { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #000; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; margin: 10px; cursor: pointer; }
+        .front, .back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 10px; border: 2px solid var(--main); }
+        .back { background: var(--card); display: flex; align-items: center; justify-content: center; color: var(--main); font-weight: bold; }
+        .front { background: white; transform: rotateY(180deg); color: #004e92; display: flex; align-items: center; justify-content: center; font-weight: bold; border-color: var(--gold); text-align: center; padding: 5px; }
+        #ai-box { margin-top: 25px; background: rgba(0,0,0,0.4); padding: 20px; border-radius: 15px; display: none; text-align: left; line-height: 1.8; border: 1px solid var(--gold); white-space: pre-wrap; }
+        button { background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; padding: 12px 25px; border-radius: 25px; font-weight: bold; cursor: pointer; color: #000; margin-top: 10px; }
+        .loading { display: none; color: var(--gold); margin: 15px; font-style: italic; }
+        a { color: var(--main); text-decoration: none; font-size: 12px; }
     </style>
 </head>
 <body>
 
-    <h1>🌌 星空靈感塔羅</h1>
-    <div class="menu">
-        <select id="spreadType" onchange="initBoard()">
-            <option value="1">每日一抽 (當下啟示)</option>
-            <option value="3">聖三角 (過/現/未)</option>
-            <option value="4">四要素 (身/心/靈/運)</option>
-            <option value="5">靈魂連結 (深層指引)</option>
-        </select>
-        <button onclick="initBoard()">洗牌啟程</button>
-    </div>
+    <div class="container">
+        <h1>🌌 星空靈感塔羅</h1>
 
-    <div id="capture-area">
-        <div class="board" id="board"></div>
-        <div id="report">
-            <h3 style="color:var(--main); border-bottom: 1px solid var(--main); padding-bottom: 5px;">📜 星空解讀報告</h3>
-            <div id="details"></div>
+        <div class="setup-box">
+            <div style="font-size: 14px;">🔑 請貼上您的 Gemini API Key</div>
+            <input type="password" id="userApiKey" placeholder="在此貼上 API Key...">
+            <br><a href="https://aistudio.google.com/app/apikey" target="_blank">👉 點此免費申請 Key</a>
+            <div style="margin-top: 15px;">
+                <select id="spreadType" onchange="initBoard()" style="padding: 8px; border-radius: 5px; background: #001529; color: white; border: 1px solid var(--main);">
+                    <option value="1">每日一抽</option>
+                    <option value="3">聖三角 (過/現/未)</option>
+                </select>
+                <button onclick="initBoard()">開始洗牌</button>
+            </div>
         </div>
+
+        <div class="board" id="board"></div>
+        <div id="loading" class="loading">✨ 正在連結星辰與 Gemini...</div>
+        <div id="ai-box"></div>
     </div>
-    <button id="download-btn" style="display:none; background:#6272a4; color:#fff;" onclick="saveScreenshot()">📸 保存星辰截圖</button>
 
     <script>
-        const major = ["愚者", "魔術師", "女教皇", "皇后", "皇帝", "教皇", "戀人", "戰車", "力量", "隱士", "命運之輪", "正義", "倒吊人", "死神", "節制", "惡魔", "高塔", "星星", "月亮", "太陽", "審判", "世界"];
-        const suits = ["權杖", "聖杯", "寶劍", "錢幣"];
-        const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "侍者", "騎士", "皇后", "國王"];
-        
-        let deck = [];
-        major.forEach(n => deck.push({n, t: '大阿爾克那'}));
-        suits.forEach(s => ranks.forEach(r => deck.push({n: s + r, t: '小阿爾克那'})));
+        const cards = ["愚者","魔術師","女教皇","皇后","皇帝","教皇","戀人","戰車","力量","隱士","命運之輪","正義","倒吊人","死神","節制","惡魔","高塔","星星","月亮","太陽","審判","世界","權杖A","權杖2","權杖3","權杖4","權杖5","權杖6","權杖7","權杖8","權杖9","權杖10","權杖侍者","權杖騎士","權杖皇后","權杖國王","聖杯A","聖杯2","聖杯3","聖杯4","聖杯5","聖杯6","聖杯7","聖杯8","聖杯9","聖杯10","聖杯侍者","聖杯騎士","聖杯皇后","聖杯國王","寶劍A","寶劍2","寶劍3","寶劍4","寶劍5","寶劍6","寶劍7","寶劍8","寶劍9","寶劍10","寶劍侍者","寶劍騎士","寶劍皇后","寶劍國王","錢幣A","錢幣2","錢幣3","錢幣4","錢幣5","錢幣6","錢幣7","錢幣8","錢幣9","錢幣10","錢幣侍者","錢幣騎士","錢幣皇后","錢幣國王"];
+        let currentReading = [];
 
-        const spreads = {
-            "1": ["當下啟示"],
-            "3": ["過去 (根源)", "現在 (現狀)", "未來 (導向)"],
-            "4": ["物質 (身)", "情感 (心)", "思想 (靈)", "運勢 (外)"],
-            "5": ["核心", "挑戰", "潛意識", "近期過去", "最終發展"]
+        // 讀取存過的 Key
+        window.onload = () => {
+            const savedKey = localStorage.getItem('my_tarot_key');
+            if (savedKey) document.getElementById('userApiKey').value = savedKey;
         };
 
         function initBoard() {
             const type = document.getElementById('spreadType').value;
             const board = document.getElementById('board');
-            board.innerHTML = '';
-            document.getElementById('report').style.display = 'none';
-            document.getElementById('details').innerHTML = '';
-            document.getElementById('download-btn').style.display = 'none';
-
-            let shuffled = [...deck].sort(() => Math.random() - 0.5);
+            board.innerHTML = ''; currentReading = [];
+            document.getElementById('ai-box').style.display = 'none';
             
-            spreads[type].forEach(pos => {
+            let shuffled = [...cards].sort(() => Math.random() - 0.5);
+            let posNames = type === "1" ? ["啟示"] : ["過去", "現在", "未來"];
+
+            posNames.forEach(pos => {
                 const card = shuffled.pop();
                 const isRev = Math.random() > 0.35;
+                currentReading.push(`${pos}: ${card}${isRev?'(逆位)':'(正位)'}`);
+                
                 const slot = document.createElement('div');
                 slot.className = 'card-slot';
                 slot.innerHTML = `
                     <div class="inner">
-                        <div class="back">${pos}</div>
-                        <div class="front">
-                            <div class="${isRev ? 'rev' : ''}" style="font-size:14px; color:#002b5b;">${card.n}</div>
-                            <div class="card-label">${card.n} ${isRev ? '(逆)' : '(正)'}</div>
-                        </div>
+                        <div class="back">✨<br>${pos}</div>
+                        <div class="front">${card}${isRev?'<br>(逆位)':''}</div>
                     </div>`;
-                
                 slot.onclick = () => {
-                    if(!slot.classList.contains('flipped')) {
-                        slot.classList.add('flipped');
-                        document.getElementById('report').style.display = 'block';
-                        document.getElementById('download-btn').style.display = 'inline-block';
-                        addToReport(pos, card, isRev);
+                    slot.classList.add('flipped');
+                    if (document.querySelectorAll('.flipped').length == posNames.length) {
+                        document.getElementById('ai-box').style.display = 'block';
+                        document.getElementById('ai-box').innerHTML = '<button style="width:100%" onclick="askAI()">🔮 請求 Gemini 即時解讀</button>';
                     }
                 };
                 board.appendChild(slot);
             });
         }
 
-        function addToReport(pos, card, isRev) {
-            const details = document.getElementById('details');
-            const color = isRev ? "var(--reversed)" : "var(--upright)";
-            const advice = isRev ? 
-                "能量目前處於停滯或內省階段，請放下外在爭奪，轉向內心尋找答案。" : 
-                "能量正向且飽滿，這是適合展現行動力的時刻，相信你的直覺。";
-            
-            details.innerHTML += `
-                <div class="reading-item" style="border-left-color:${color}">
-                    <strong style="color:var(--gold)">【${pos}】${card.n} (${isRev?'逆位':'正位'})</strong><br>
-                    <p style="font-size:14px; margin-top:5px; color:#ddd;">✦ ${card.t}：${advice}</p>
-                </div>`;
-        }
+        async function askAI() {
+            const key = document.getElementById('userApiKey').value;
+            if (!key) return alert("請貼上 API Key 才能開始占卜！");
+            localStorage.setItem('my_tarot_key', key);
 
-        async function saveScreenshot() {
-            const canvas = await html2canvas(document.getElementById('capture-area'), { useCORS: true, backgroundColor: '#000428', scale: 2 });
-            const link = document.createElement('a');
-            link.download = 'tarot-reading.png';
-            link.href = canvas.toDataURL();
-            link.click();
-        }
+            document.getElementById('loading').style.display = 'block';
+            const prompt = `你是一位靈魂塔羅大師，擅長用溫暖、詩意且精確的語言引導迷惘的人。我抽到了：${currentReading.join(', ')}。請針對我的牌陣進行約 300 字的深度解讀，告訴我宇宙想給我的具體啟發。`;
 
-        initBoard();
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await response.json();
+                const text = data.candidates[0].content.parts[0].text;
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('ai-box').innerHTML = `<strong>✨ 星辰的指引：</strong><br><br>${text}`;
+            } catch (error) {
+                alert("API Key 無效或網路問題，請重新確認。");
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
     </script>
 </body>
 </html>
