@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星空塔羅</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body { background: radial-gradient(circle, #004e92, #000428); color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; min-height: 100vh; }
+        h2 { margin: 20px 0; color: #e0c3fc; }
+        .menu { margin: 15px; }
+        select, button { padding: 12px 24px; margin: 8px; font-size: 16px; border-radius: 12px; border: none; cursor: pointer; }
+        button { background: #0066cc; color: white; }
+        button:hover { background: #e0c3fc; color: #000; }
+        .board { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin: 20px auto; max-width: 900px; }
+        .card { width: 92px; height: 148px; position: relative; cursor: pointer; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.6); }
+        .card img { width: 100%; height: 100%; object-fit: cover; }
+        .card.reversed img { transform: rotate(180deg); }
+        .card .label { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.65); padding: 3px 8px; border-radius: 6px; font-size: 11px; }
+        #report { display: none; margin: 20px auto; max-width: 720px; background: rgba(0,0,0,0.7); padding: 25px; border-radius: 15px; text-align: left; line-height: 1.8; font-size: 15.5px; }
+    </style>
+</head>
+<body>
+
+    <h2>🔮 星空塔羅</h2>
+
+    <div class="menu">
+        <select id="spread">
+            <option value="1">每日一抽</option>
+            <option value="3">過去 / 現在 / 未來</option>
+            <option value="rel">關係</option>
+            <option value="star">五芒星</option>
+        </select>
+        <br>
+        <button onclick="draw()">開始占卜</button>
+    </div>
+
+    <div id="capture">
+        <div class="board" id="board"></div>
+        <div id="report"></div>
+    </div>
+
+    <button onclick="save()">📸 存圖</button>
+
+    <script>
+        const tarotData = {
+            "愚者": { pos: "踏上未知的勇氣，純粹的信任，無限的可能。", rev: "盲目的衝動，缺乏計畫的冒險，忽略眼下的危險。" },
+            "魔術師": { pos: "萬事俱備，意志力的顯化，掌握資源的時刻。", rev: "能量的錯用，意圖隱瞞真相，缺乏行動的空談。" },
+            "女教皇": { pos: "靜謐的直覺，內在智慧的指引，等待時機顯現。", rev: "過度冷漠，壓抑的情緒，忽略了潛意識的警訊。" },
+            "皇后": { pos: "豐饒的生命力，母性的滋養，創造力的盛放。", rev: "過度保護，創造力的乾涸，感官世界的沉溺。" },
+            "皇帝": { pos: "穩定的領導力，建立秩序與規範，父親的形象。", rev: "專制暴虐，權力的濫用，僵化而缺乏彈性的結構。" },
+            "教皇": { pos: "傳統價值的引導，精神的導師，尋求社會認同。", rev: "打破迷信，反叛體制，質疑既有的道德教條。" },
+            "戀人": { pos: "契合的關係，價值觀的抉擇，心靈的連結。", rev: "失衡的關係，逃避選擇，不負責任的承諾。" },
+            "戰車": { pos: "堅強的意志，突破重圍的勝利，掌控內在衝突。", rev: "失控的情緒，方向感的喪失，強求而來的失敗。" },
+            "力量": { pos: "溫柔的剛強，耐心的收服，內在獸性的轉化。", rev: "內心的恐懼，自信心的潰散，情緒失控的暴力。" },
+            "隱士": { pos: "孤獨中的追尋，智慧的沈澱，向內在探索答案。", rev: "與世隔絕的偏執，孤僻導致的盲點，拒絕導師指引。" },
+            "命運之輪": { pos: "生命的轉捩點，接受變化的必然，順應天時。", rev: "抗拒改變，運勢的低潮，陷入輪迴的業力。" },
+            "正義": { pos: "誠實地面對因果，理性的裁決，尋求平衡點。", rev: "偏見的審判，不公平的待遇，逃避應負的法律責任。" },
+            "懸吊者": { pos: "必要的犧牲，換個視角看世界，靜止中的修煉。", rev: "徒勞無功的等待，無法放下執著，無謂的受難。" },
+            "死神": { pos: "徹底的終結，為新生騰出空間，必要的質變。", rev: "恐懼結束，困在腐朽的過去，生命力的停滯。" },
+            "節制": { pos: "鍊金術般的融合，情緒的淨化，中庸之道。", rev: "極端失衡，缺乏耐心，溝通上的能量阻礙。" },
+            "惡魔": { pos: "物質欲望的綑綁，執念的束縛，陰影面的覺察。", rev: "覺醒的開端，打破枷鎖，從依賴關係中解脫。" },
+            "高塔": { pos: "突如其來的劇變，假象的瓦解，震驚後的重生。", rev: "延遲的災難，不願面對現實，躲在危樓中的假性平靜。" },
+            "星星": { pos: "療癒的希望，純淨的靈感，黑暗中的導航燈。", rev: "幻滅的失望，失去信念，對未來感到迷茫。" },
+            "月亮": { pos: "潛意識的湧動，不安的幻象，直覺的考驗。", rev: "恐懼的釋放，誤會冰釋，看穿陰影後的真相。" },
+            "太陽": { pos: "喜悅與光明，成功的耀眼，生命力的巔峰。", rev: "虛假的樂觀，過度自我膨脹，短暫的成功。" },
+            "審判": { pos: "聽見心靈的召喚，過去的總結，重獲新生。", rev: "拒絕回應召喚，自我懷疑，錯失改變命運的良機。" },
+            "世界": { pos: "完美的句點，靈魂的圓滿，統合的旅程。", rev: "未完成的任務，缺乏最後的關鍵，停滯的格局。" }
+        };
+
+        const cards = Object.keys(tarotData);
+        const spreads = { "1": ["啟示"], "3": ["過去","現在","未來"], "rel": ["你","對方","連結"], "star": ["核心","挑戰","環境","策略","結果"] };
+        let result = [];
+
+        const baseImageUrl = "https://ishtarcollective.blob.core.windows.net/rider-waite-tarot/";
+        const cardFileMap = {
+            "愚者":"major-0.jpg","魔術師":"major-1.jpg","女教皇":"major-2.jpg","皇后":"major-3.jpg","皇帝":"major-4.jpg","教皇":"major-5.jpg",
+            "戀人":"major-6.jpg","戰車":"major-7.jpg","力量":"major-8.jpg","隱士":"major-9.jpg","命運之輪":"major-10.jpg","正義":"major-11.jpg",
+            "懸吊者":"major-12.jpg","死神":"major-13.jpg","節制":"major-14.jpg","惡魔":"major-15.jpg","高塔":"major-16.jpg",
+            "星星":"major-17.jpg","月亮":"major-18.jpg","太陽":"major-19.jpg","審判":"major-20.jpg","世界":"major-21.jpg"
+        };
+
+        function draw() {
+            const type = document.getElementById("spread").value;
+            const board = document.getElementById("board");
+            board.innerHTML = "🔮 正在讀取你的能量...";
+            setTimeout(() => {
+                board.innerHTML = "";
+                result = [];
+                spreads[type].forEach(pos => {
+                    const name = cards[Math.floor(Math.random() * cards.length)];
+                    const rev = Math.random() > 0.5;
+                    result.push({ pos, name, rev });
+                    const imgSrc = baseImageUrl + cardFileMap[name];
+                    const div = document.createElement("div");
+                    div.className = `card ${rev ? 'reversed' : ''}`;
+                    div.innerHTML = `<img src="${imgSrc}" onerror="this.src='https://via.placeholder.com/92x148/004e92/white?text=載入失敗'"><div class="label">${pos}</div>`;
+                    div.onclick = () => {
+                        if (!div.dataset.revealed) {
+                            div.innerHTML = `<img src="${imgSrc}"><div class="label">${name}<br>${rev ? "逆" : "正"}</div>`;
+                            div.dataset.revealed = "true";
+                        }
+                    };
+                    board.appendChild(div);
+                });
+                generate();
+            }, 800);
+        }
+
+        function generate() {
+            let html = `<h3 style="color:#e0c3fc; text-align:center;">✨ 宇宙給你的訊息 ✨</h3>`;
+            result.forEach(r => {
+                const info = tarotData[r.name];
+                const text = r.rev ? info.rev : info.pos;
+                html += `<div style="margin:18px 0;padding:16px;background:rgba(255,255,255,0.05);border-radius:10px;"><strong style="color:#e0c3fc">【${r.pos}】 ${r.name} ${r.rev ? '（逆位）' : '（正位）'}</strong><br><span style="color:#ccc;">${text}</span></div>`;
+            });
+            const revCount = result.filter(r => r.rev).length;
+            const overall = revCount >= 3 ? "這組牌帶有較強警示能量，建議先停下來反思再行動。" : revCount <= 1 ? "整體能量順暢流動，宇宙正在為你開路。" : "能量中性，關鍵在於你如何善用這股力量。";
+            html += `<p style="margin-top:25px;color:#ddd;font-size:15px;">${overall}</p>`;
+            document.getElementById("report").innerHTML = html;
+            document.getElementById("report").style.display = "block";
+        }
+
+        async function save() {
+            const canvas = await html2canvas(document.getElementById("capture"), { scale: 2 });
+            const link = document.createElement('a');
+            link.download = `星空塔羅-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
