@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星空塔羅・最終演化版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --bg-color: radial-gradient(circle at center, #050b18 0%, #000 100%);
+            --card-front: #1a2a44;
+            --card-back-pos: #1b4d3e;
+            --card-back-rev: #631e1e;
+            --accent: #d4af37;
+        }
+        body {
+            background: var(--bg-color);
+            color: #f0f0f0;
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        }
+        .menu {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 20px; border-radius: 15px; border: 1px solid rgba(212, 175, 55, 0.2);
+            margin-bottom: 20px; width: 90%; max-width: 450px; text-align: center;
+        }
+        select, button {
+            padding: 12px; margin: 5px; border-radius: 8px; border: 1px solid var(--accent);
+            background: #111; color: var(--accent); cursor: pointer; font-weight: bold;
+        }
+        button:hover { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
+        .board { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin: 20px 0; }
+        .card { width: 100px; height: 160px; perspective: 1000px; cursor: pointer; }
+        .card-inner {
+            position: relative; width: 100%; height: 100%;
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .card.flipped .card-inner { transform: rotateY(180deg); }
+        .card-front, .card-back {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 10px; box-sizing: border-box; font-size: 14px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .card-front { background: var(--card-front); color: var(--accent); }
+        .card-back { transform: rotateY(180deg); color: white; }
+        .pos-bg { background: var(--card-back-pos); }
+        .rev-bg { background: var(--card-back-rev); }
+        #report {
+            display: none; width: 100%; max-width: 600px;
+            background: rgba(0, 0, 0, 0.8); padding: 25px; border-radius: 15px;
+            border: 1px solid var(--accent); line-height: 1.8; margin-top: 20px;
+        }
+        .report-item { 
+            margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);
+            animation: fadeIn 0.6s forwards; opacity: 0;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <h2 style="color:var(--accent)">🔮 星空塔羅・最終演化</h2>
+
+    <div class="menu">
+        <select id="spread">
+            <option value="1">單張啟示</option>
+            <option value="3">時間流 (過去/現在/未來)</option>
+            <option value="rel">關係陣 (你/對方/結果)</option>
+            <option value="star">五芒星 (核心/挑戰/環境/策略/最終)</option>
+        </select>
+        <button onclick="draw()">啟動占卜</button>
+        <button onclick="save()">📸 保存結果</button>
+    </div>
+
+    <div id="capture">
+        <div class="board" id="board"></div>
+        <div id="report"></div>
+    </div>
+
+    <script>
+        const tarotData = {
+            "愚者": { pos: "新的開始、冒險、純真", rev: "魯莽、不顧後果、猶豫" },
+            "魔術師": { pos: "創造力、行動、意志力", rev: "操縱、未開發的潛力、溝通不良" },
+            "女教皇": { pos: "直覺、潛意識、智慧", rev: "表面化、隱藏動機、忽略內心" },
+            "皇后": { pos: "豐盛、母性、感官、創造", rev: "安全感缺乏、過度依賴、停滯" },
+            "皇帝": { pos: "權威、結構、穩定、領導", rev: "專制、死板、缺乏紀律" },
+            "教皇": { pos: "傳統、信仰、導師、規範", rev: "反叛、打破傳統、盲目服從" },
+            "戀人": { pos: "愛、契合、價值觀選擇", rev: "失衡、溝通障礙、逃避選擇" },
+            "戰車": { pos: "意志力、勝利、決心、掌控", rev: "失控、方向不明、過度自信" },
+            "力量": { pos: "勇氣、耐心、內在力量", rev: "軟弱、自我懷疑、缺乏控制" },
+            "隱士": { pos: "孤獨、尋求真理、內省", rev: "孤立、偏執、退縮" },
+            "命運之輪": { pos: "轉機、改變、命運、循環", rev: "倒霉、抗拒改變、無法控制" },
+            "正義": { pos: "公平、真相、因果、責任", rev: "不公、虛偽、逃避責任" },
+            "懸吊者": { pos: "暫停、奉獻、換位思考", rev: "拖延、徒勞、犧牲過度" },
+            "死神": { pos: "結束、轉變、新生", rev: "抗拒改變、停滯、恐懼死亡" },
+            "節制": { pos: "平衡、融合、節制、耐心", rev: "失衡、極端、衝突" },
+            "惡魔": { pos: "束縛、慾望、成癮、物質", rev: "解脫、覺醒、打破枷鎖" },
+            "高塔": { pos: "劇變、瓦解、震驚", rev: "躲過一劫、延遲崩解、不願面對" },
+            "星星": { pos: "希望、信念、療癒、平靜", rev: "失望、失去信心、焦慮" },
+            "月亮": { pos: "恐懼、幻象、不確定性", rev: "釋放恐懼、真相大白、揭穿謊言" },
+            "太陽": { pos: "成功、喜悅、活力、自信", rev: "憂鬱、短暫成功、自我中心" },
+            "審判": { pos: "覺醒、評估、新生、使命", rev: "自我懷疑、猶豫、錯失機會" },
+            "世界": { pos: "圓滿、成就、整合、旅行", rev: "未竟之志、停滯、缺乏效率" },
+            // 小牌部分 (精簡核心，確保能直接執行)
+            "權杖一": { pos: "新計畫、行動力", rev: "缺乏動力、延遲" }, "權杖二": { pos: "規劃、跨出舒適圈", rev: "恐懼未知" },
+            "權杖三": { pos: "展望未來、擴展", rev: "計畫延誤" }, "權杖四": { pos: "穩定、家庭和諧", rev: "不穩定的平衡" },
+            "權杖五": { pos: "競爭、衝突、挑戰", rev: "避免衝突、妥協" }, "權杖六": { pos: "勝利、大眾認可", rev: "自傲、流言" },
+            "權杖七": { pos: "防禦、堅持立場", rev: "放棄、過度防衛" }, "權杖八": { pos: "迅速、進展、訊息", rev: "拖延、混亂" },
+            "權杖九": { pos: "韌性、最後考驗", rev: "筋疲力盡、崩潰" }, "權杖十": { pos: "重擔、極限壓力", rev: "卸下負擔、崩潰" },
+            "權杖侍者": { pos: "熱情消息、好奇心", rev: "壞消息、幼稚" }, "權杖騎士": { pos: "衝刺、冒險大膽", rev: "魯莽、受挫" },
+            "權杖皇后": { pos: "自信、熱情社交", rev: "控制欲、嫉妒" }, "權杖國王": { pos: "願景、領導開創", rev: "專制、衝動" },
+            "聖杯一": { pos: "情感新開端、愛", rev: "情感受阻、枯竭" }, "聖杯二": { pos: "平等的結合、和諧", rev: "失衡、溝通障礙" },
+            "聖杯三": { pos: "慶祝、團體支持", rev: "過度縱樂、疏離" }, "聖杯四": { pos: "倦怠、忽視機會", rev: "重新振作、新目標" },
+            "聖杯五": { pos: "悲傷、專注失去", rev: "走出陰影、療癒" }, "聖杯六": { pos: "純真、懷舊分享", rev: "沉溺過去、成長痛" },
+            "聖杯七": { pos: "幻象、多種選擇", rev: "清醒、做出抉擇" }, "聖杯八": { pos: "離去、精神追尋", rev: "困在原地、猶豫" },
+            "聖杯九": { pos: "願望成真、滿足", rev: "空虛、自負、貪婪" }, "聖杯十": { pos: "情感圓滿、幸福", rev: "家庭衝突、疏離" },
+            "聖杯侍者": { pos: "感性訊息、創意", rev: "情緒不穩、幼稚" }, "聖杯騎士": { pos: "浪漫、追求理想", rev: "虛偽、不切實際" },
+            "聖杯皇后": { pos: "直覺、慈悲療癒", rev: "情緒勒索、敏感" }, "聖杯國王": { pos: "冷靜、包容穩定", rev: "操縱、情感封閉" },
+            "寶劍一": { pos: "理智突破、清晰", rev: "混亂、權力濫用" }, "寶劍二": { pos: "僵局、逃避抉擇", rev: "真相大白、決斷" },
+            "寶劍三": { pos: "心碎、分離痛苦", rev: "壓抑、緩慢療癒" }, "寶劍四": { pos: "休息、恢復能量", rev: "被迫行動、失眠" },
+            "寶劍五": { pos: "衝突、損人利己", rev: "和解、放下爭執" }, "寶劍六": { pos: "渡過難關、平靜", rev: "無法前行、舊帳" },
+            "寶劍七": { pos: "策略、隱瞞行動", rev: "計畫曝光、自省" }, "寶劍八": { pos: "自我束縛、受困", rev: "解脫、找到出口" },
+            "寶劍九": { pos: "焦慮、心理折磨", rev: "壓力減輕、面對" }, "寶劍十": { pos: "谷底、徹底結束", rev: "最壞已過、起死回生" },
+            "寶劍侍者": { pos: "警覺、智慧點子", rev: "愛批評、缺乏行動" }, "寶劍騎士": { pos: "衝刺挑戰、邏輯", rev: "混亂、魯莽口角" },
+            "寶劍皇后": { pos: "獨立判斷、誠實", rev: "冷酷偏見、毒舌" }, "寶劍國王": { pos: "權威、公正分析", rev: "殘忍、權力濫用" },
+            "金幣一": { pos: "物質機會、豐盛", rev: "錯失良機、浪費" }, "金幣二": { pos: "平衡生活、適應力", rev: "失衡、壓力過大" },
+            "金幣三": { pos: "團隊合作、技能認可", rev: "品質低劣、不均" }, "金幣四": { pos: "保守、掌控慾、守財", rev: "貪婪、支出過大" },
+            "金幣五": { pos: "匱乏、孤立無援", rev: "轉機、經濟改善" }, "金幣六": { pos: "慷慨分享、平衡", rev: "不平等、假慷慨" },
+            "金幣七": { pos: "耐心評估成果", rev: "焦慮結果、徒勞" }, "金幣八": { pos: "專注勤奮、提升", rev: "完美主義、倦怠" },
+            "金幣九": { pos: "富足、享受生活", rev: "過度花費、依賴" }, "金幣十": { pos: "長期穩定、家族成就", rev: "家庭糾紛、損失" },
+            "金幣侍者": { pos: "新商機、腳踏實地", rev: "懶散、缺乏目標" }, "金幣騎士": { pos: "可靠、規律進展", rev: "死板、工作狂" },
+            "金幣皇后": { pos: "務實、慷慨安全感", rev: "生活失衡、嫉妒" }, "金幣國王": { pos: "成功管理、物質巔峰", rev: "腐敗、利欲薰心" }
+        };
+
+        const cards = Object.keys(tarotData);
+        const spreads = { "1": ["啟示"], "3": ["過去","現在","未來"], "rel": ["你","對方","結果"], "star": ["核心","挑戰","環境","策略","最終"] };
+        let results = [];
+
+        function draw() {
+            const type = document.getElementById("spread").value;
+            const board = document.getElementById("board");
+            board.innerHTML = "🌌 星辰排列中...";
+            results = [];
+            setTimeout(() => {
+                board.innerHTML = "";
+                spreads[type].forEach(pos => {
+                    const name = cards[Math.floor(Math.random() * cards.length)];
+                    const isRev = Math.random() > 0.5;
+                    results.push({ pos, name, isRev });
+                    const el = document.createElement("div");
+                    el.className = "card";
+                    el.innerHTML = `<div class="card-inner"><div class="card-front">${pos}</div><div class="card-back ${isRev?'rev-bg':'pos-bg'}">${name}<br>${isRev?'(逆)':'(正)'}</div></div>`;
+                    el.onclick = () => el.classList.toggle('flipped');
+                    board.appendChild(el);
+                });
+                generate();
+            }, 800);
+        }
+
+        function generate() {
+            let html = `<h3 style="color:var(--accent); text-align:center;">✨ 深度解析報告 ✨</h3>`;
+            results.forEach((r, i) => {
+                const meaning = r.isRev ? tarotData[r.name].rev : tarotData[r.name].pos;
+                html += `<div class="report-item" style="animation-delay:${i*0.2}s"><strong>【${r.pos}】${r.name}</strong> (${r.isRev?'逆位':'正位'})<br><span style="color:#bbb; font-size:14px;">核心含義：${meaning}</span></div>`;
+            });
+            document.getElementById("report").innerHTML = html;
+            document.getElementById("report").style.display = "block";
+        }
+
+        async function save() {
+            document.querySelectorAll('.card').forEach(c => c.classList.add('flipped'));
+            const canvas = await html2canvas(document.getElementById("capture"), { backgroundColor: "#000", scale: 2 });
+            const link = document.createElement('a');
+            link.download = `Tarot-${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+    </script>
+</body>
+</html>
