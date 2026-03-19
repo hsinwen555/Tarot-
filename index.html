@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星空塔羅 Oracle - 專業占卜版</title>
+    <style>
+        :root {
+            --primary: #e0c3fc;
+            --accent: #ffd700;
+            --bg-dark: #000428;
+            --card-bg: #1a0033;
+        }
+
+        body { 
+            background: radial-gradient(circle at center, #001133, #000428 70%, #000000); 
+            color: white; 
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; 
+            text-align: center; 
+            margin: 0; 
+            padding: 20px; 
+            min-height: 100vh; 
+            background-attachment: fixed;
+        }
+
+        h2 { 
+            margin: 20px 0; 
+            color: var(--primary); 
+            text-shadow: 0 0 20px var(--primary), 0 0 40px #4a9eff;
+            letter-spacing: 5px;
+        }
+
+        /* 選單與按鈕 */
+        .menu { margin: 25px 0; }
+        select, button { 
+            padding: 12px 24px; 
+            margin: 8px; 
+            font-size: 16px; 
+            border-radius: 12px; 
+            border: 1px solid var(--primary); 
+            cursor: pointer; 
+            transition: 0.3s;
+        }
+        select { background: rgba(0,0,0,0.5); color: white; }
+        button { background: #0066cc; color: white; border: none; }
+        button:hover { background: var(--primary); color: #000; box-shadow: 0 0 15px var(--primary); }
+
+        /* 牌陣畫布 */
+        .board { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            gap: 20px; 
+            margin: 30px auto; 
+            max-width: 1000px; 
+        }
+
+        /* 塔羅卡片樣式 */
+        .card { 
+            width: 110px; 
+            height: 180px; 
+            position: relative; 
+            border-radius: 12px; 
+            background: linear-gradient(135deg, var(--card-bg), #2a0055);
+            border: 2px solid var(--primary);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.4s ease;
+        }
+        .card.reversed { transform: rotate(180deg); }
+        .card .content { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; box-sizing: border-box; }
+        .card .back-symbol { font-size: 45px; margin-bottom: 10px; filter: drop-shadow(0 0 5px var(--primary)); }
+        .card .name { font-size: 14px; font-weight: bold; color: var(--accent); margin-bottom: 5px; }
+        .card .orientation { font-size: 11px; color: var(--primary); opacity: 0.8; }
+        .card .label { 
+            position: absolute; bottom: -25px; left: 50%; transform: translateX(-50%);
+            background: rgba(74, 158, 255, 0.3); padding: 2px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap; color: white;
+        }
+        .card.reversed .label { transform: translateX(-50%) rotate(180deg); bottom: auto; top: -25px; }
+
+        /* 專業解讀區域 */
+        #report { 
+            display: none; 
+            margin: 50px auto; 
+            max-width: 750px; 
+            background: rgba(10, 10, 25, 0.9); 
+            padding: 30px; 
+            border-radius: 20px; 
+            text-align: left; 
+            border: 1px solid var(--primary);
+            box-shadow: inset 0 0 30px rgba(224, 195, 252, 0.1);
+        }
+
+        .oracle-section { 
+            margin-bottom: 35px; 
+            padding: 20px; 
+            border-radius: 12px; 
+            background: rgba(255, 255, 255, 0.03); 
+            position: relative;
+            border-bottom: 1px solid rgba(224, 195, 252, 0.2);
+        }
+        .oracle-section::before { content: "◈"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); color: var(--accent); background: #0a0a19; padding: 0 10px; }
+        .oracle-title { color: var(--accent); font-size: 1.2em; letter-spacing: 2px; margin-bottom: 15px; display: block; font-weight: bold; }
+        .advice-tag { display: inline-block; background: #4a9eff; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-right: 8px; font-weight: bold; }
+
+        /* 牌義大全列表 */
+        #allTarot { display: none; margin: 40px auto; max-width: 900px; background: rgba(0,0,0,0.7); padding: 25px; border-radius: 15px; }
+        .tarot-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+        .tarot-card-full { background: rgba(255,255,255,0.06); padding: 15px; border-radius: 10px; border-left: 5px solid var(--primary); text-align: left; }
+
+        @media (max-width: 600px) {
+            .board { gap: 40px 10px; }
+            .card { width: 90px; height: 150px; }
+        }
+    </style>
+</head>
+<body>
+
+    <h2>🔮 星空塔羅 Oracle</h2>
+
+    <div class="menu">
+        <select id="spread">
+            <option value="1">✨ 每日一抽 (啟示)</option>
+            <option value="3">⏳ 過去 / 現在 / 未來</option>
+            <option value="rel">💖 關係深度連結</option>
+            <option value="star">✡️ 五芒星能量場</option>
+        </select>
+        <br>
+        <button onclick="draw()">開始冥想占卜</button>
+    </div>
+
+    <div id="capture">
+        <div class="board" id="board"></div>
+        <div id="report"></div>
+    </div>
+
+    <button onclick="toggleAllTarot()" style="background:#4a9eff; margin-top:50px;">📖 檢視七十八張牌典</button>
+
+    <div id="allTarot">
+        <h3 style="color:var(--primary)">🌌 塔羅全書</h3>
+        <div class="tarot-list" id="tarotList"></div>
+    </div>
+
+    <script>
+        const tarotData = {
+            majors: [
+                { name: "愚者", symbol: "🃏", up: "新開始、冒險、純真", rev: "魯莽、風險、停滯" },
+                { name: "魔術師", symbol: "🪄", up: "創造力、行動、資源", rev: "欺騙、意志薄弱、幻覺" },
+                { name: "女教皇", symbol: "🌙", up: "直覺、潛意識、智慧", rev: "壓抑、膚淺、隱藏動機" },
+                { name: "女皇", symbol: "🌿", up: "豐饒、母愛、創造力", rev: "依賴、缺乏安全感、阻塞" },
+                { name: "皇帝", symbol: "👑", up: "權威、穩定、結構", rev: "專橫、僵化、缺乏紀律" },
+                { name: "教皇", symbol: "🕊️", up: "傳統、精神引導、體制", rev: "反叛、挑戰規範、個人信仰" },
+                { name: "戀人", symbol: "❤️", up: "選擇、合一、價值觀", rev: "失調、不平衡、逃避責任" },
+                { name: "戰車", symbol: "⚔️", up: "意志力、勝利、前進", rev: "失控、侵略性、方向不明" },
+                { name: "力量", symbol: "🦁", up: "勇氣、耐心、內在力量", rev: "自我懷疑、軟弱、挫折感" },
+                { name: "隱士", symbol: "🕯️", up: "反省、孤獨、尋求真理", rev: "孤立、偏執、過度退縮" },
+                { name: "命運之輪", symbol: "🎡", up: "好運、轉折點、命運", rev: "厄運、抵抗改變、停滯" },
+                { name: "正義", symbol: "⚖️", up: "公平、真理、法律", rev: "不公、偏見、推卸責任" },
+                { name: "倒吊人", symbol: "🦶", up: "犧牲、新視角、等待", rev: "無謂犧牲、拖延、隨波逐流" },
+                { name: "死神", symbol: "💀", up: "結束、轉變、新生", rev: "恐懼改變、停滯、糾纏過去" },
+                { name: "節制", symbol: "🏺", up: "平衡、適度、療癒", rev: "失衡、極端、缺乏目的" },
+                { name: "惡魔", symbol: "🔥", up: "束縛、慾望、物質主義", rev: "解脫、自我控制、覺醒" },
+                { name: "高塔", symbol: "⚡", up: "劇變、啟示、毀滅", rev: "恐懼災難、延緩改變、逃避現實" },
+                { name: "星星", symbol: "✨", up: "希望、靈感、寧靜", rev: "絕望、缺乏信心、幻想破滅" },
+                { name: "月亮", symbol: "🌙", up: "幻覺、恐懼、潛意識", rev: "真相大白、克服恐懼、混亂緩解" },
+                { name: "太陽", symbol: "☀️", up: "快樂、成功、活力", rev: "消極、短暫成功、抑鬱" },
+                { name: "審判", symbol: "🎺", up: "覺醒、評估、使命", rev: "自我懷疑、猶豫不決、拒絕召喚" },
+                { name: "世界", symbol: "🌍", up: "完成、成就、旅行", rev: "未完成、延遲、缺乏閉合" }
+            ],
+            minors: { "權杖": "🔥", "聖杯": "💧", "寶劍": "🌪️", "錢幣": "🌱" }
+        };
+
+        const suitKeywords = {
+            "權杖": { element: "行動力", up: "積極進展", rev: "能量受挫" },
+            "聖杯": { element: "情感面", up: "和諧豐沛", rev: "情緒波動" },
+            "寶劍": { element: "思維邏輯", up: "清晰決斷", rev: "溝通障礙" },
+            "錢幣": { element: "物質現實", up: "穩定成長", rev: "資源流失" }
+        };
+
+        const rankKeywords = {
+            1: "新的契機", 2: "選擇與平衡", 3: "初步擴張", 4: "穩固休息", 5: "衝突挑戰",
+            6: "成功回饋", 7: "評估堅持", 8: "迅速行動", 9: "即將達成", 10: "最終圓滿",
+            "侍者": "訊息與好奇心", "騎士": "行動與變動", "皇后": "內斂的支持", "國王": "領導與掌控"
+        };
+
+        const spreads = {
+            "1": ["今日運勢"],
+            "3": ["過去 (背景)", "現在 (現狀)", "未來 (趨勢)"],
+            "rel": ["你的狀態", "對方的狀態", "彼此的關係", "潛在問題", "最終結果"],
+            "star": ["自我 (地)", "情感 (水)", "行動 (火)", "思維 (風)", "靈魂 (靈)"]
+        };
+
+        let fullDeck = [];
+        function initDeck() {
+            fullDeck = [...tarotData.majors];
+            Object.entries(suitKeywords).forEach(([suit, info]) => {
+                Object.entries(rankKeywords).forEach(([rank, rInfo]) => {
+                    fullDeck.push({
+                        name: `${suit}${(rank==1?'王牌':rank)}`,
+                        symbol: tarotData.minors[suit],
+                        up: `${info.element}中${rInfo}，表現為${info.up}`,
+                        rev: `${info.element}中${rInfo}的能量受阻，表現為${info.rev}`
+                    });
+                });
+            });
+        }
+        initDeck();
+
+        function draw() {
+            const spreadKey = document.getElementById('spread').value;
+            const labels = spreads[spreadKey];
+            const shuffled = [...fullDeck].sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, labels.length);
+
+            const board = document.getElementById('board');
+            const report = document.getElementById('report');
+            board.innerHTML = '';
+            report.innerHTML = `<h2 style="text-align:center; color:var(--accent); font-size:1.5em;">✦ 星 空 啟 示 ✦</h2>`;
+            report.style.display = 'block';
+
+            selected.forEach((card, i) => {
+                const isReversed = Math.random() > 0.5;
+                const posLabel = labels[i];
+                
+                // 渲染卡片
+                const cardDiv = document.createElement('div');
+                cardDiv.className = `card ${isReversed ? 'reversed' : ''}`;
+                cardDiv.innerHTML = `
+                    <div class="content">
+                        <div class="back-symbol">${card.symbol}</div>
+                        <div class="name">${card.name}</div>
+                        <div class="orientation">${isReversed ? '逆位' : '正位'}</div>
+                        <div class="label">${posLabel}</div>
+                    </div>
+                `;
+                board.appendChild(cardDiv);
+
+                // 生成分析
+                const meaning = isReversed ? card.rev : card.up;
+                const analysis = getProfessionalAdvice(card, isReversed, posLabel);
+
+                report.innerHTML += `
+                    <div class="oracle-section">
+                        <span class="oracle-title">${posLabel}：${card.name} (${isReversed ? '逆位' : '正位'})</span>
+                        <div style="margin-bottom:10px;"><span class="advice-tag">啟示</span> ${meaning}</div>
+                        <div style="margin-bottom:10px; color:#ddd;"><span class="advice-tag" style="background:#555;">洞察</span> ${analysis.insight}</div>
+                        <div style="color:var(--primary); font-weight:bold;"><span class="advice-tag" style="background:var(--primary); color:#000;">行動</span> ${analysis.action}</div>
+                    </div>
+                `;
+            });
+            window.scrollTo({ top: document.getElementById('capture').offsetTop, behavior: 'smooth' });
+        }
+
+        function getProfessionalAdvice(card, isRev, label) {
+            let insight = isRev ? `在「${label}」位置出現逆位，顯示能量正處於轉型或壓抑期。這通常不是外在的阻礙，而是內在尚未準備好。` 
+                                : `這張牌正位出現在「${label}」，代表能量流動順暢。你目前所處的頻率與宇宙目標契合。`;
+            
+            let action = "";
+            if (card.symbol === "🔥") action = isRev ? "建議先停下腳步，盲目的衝刺只會耗損熱情。" : "現在是展現執行力的最佳時機，請勇敢帶領他人。";
+            else if (card.symbol === "💧") action = isRev ? "請先處理內在的負面情緒，不要急著在關係中做決定。" : "信任你的直覺，展開心胸去接受情感的流動。";
+            else if (card.symbol === "🌪️") action = isRev ? "避免口角衝突，目前的混亂源於思維過於複雜。" : "保持冷靜與客觀，用事實與邏輯來解決問題。";
+            else if (card.symbol === "🌱") action = isRev ? "理財或務實面上需保守，不宜在此刻進行大筆投資。" : "持續穩健累積，你過去的努力即將看見實體回饋。";
+            else action = isRev ? "這是靈魂的修煉期，學會放下掌控欲是當前的課題。" : "重大的人生契機已現，請保持覺察，順應天命而行。";
+
+            return { insight, action };
+        }
+
+        function toggleAllTarot() {
+            const list = document.getElementById('tarotList');
+            const container = document.getElementById('allTarot');
+            if (container.style.display === 'block') { container.style.display = 'none'; return; }
+            
+            list.innerHTML = fullDeck.map(card => `
+                <div class="tarot-card-full">
+                    <strong>${card.symbol} ${card.name}</strong><br>
+                    <small>正位：${card.up}</small><br>
+                    <small style="color:var(--primary)">逆位：${card.rev}</small>
+                </div>
+            `).join('');
+            container.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
