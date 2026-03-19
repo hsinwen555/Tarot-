@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星空靈感塔羅 Pro</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+:root { --main:#4facfe; --bg:#000428; --gold:#ffd700; }
+
+body {
+    background: radial-gradient(circle,#004e92,#000428);
+    color:white; font-family:sans-serif;
+    text-align:center; margin:0; padding:10px;
+}
+
+.menu {
+    background:rgba(255,255,255,0.05);
+    padding:15px; border-radius:12px;
+    border:1px solid var(--main);
+}
+
+input, select {
+    width:90%; padding:10px;
+    margin:5px; border-radius:8px;
+    background:#001529; color:white;
+    border:1px solid var(--main);
+}
+
+.board { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+
+.card-slot { width:90px; height:150px; perspective:1000px; }
+
+.inner {
+    width:100%; height:100%;
+    transition:0.6s;
+    transform-style:preserve-3d;
+}
+
+.card-slot.flipped .inner { transform:rotateY(180deg); }
+
+.front,.back {
+    position:absolute; width:100%; height:100%;
+    border-radius:10px;
+    backface-visibility:hidden;
+    display:flex; align-items:center; justify-content:center;
+}
+
+.back { background:#004e92; }
+
+.front {
+    background:white;
+    transform:rotateY(180deg);
+}
+
+.front img { width:100%; height:100%; object-fit:cover; }
+
+.reversed img { transform:rotate(180deg); }
+
+#report {
+    display:none;
+    background:rgba(0,0,0,0.9);
+    padding:20px; border-radius:12px;
+    margin-top:20px;
+    text-align:left;
+}
+
+button {
+    padding:10px 20px;
+    border:none;
+    border-radius:20px;
+    background:linear-gradient(135deg,#4facfe,#00f2fe);
+    margin:5px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🌌 星空靈感塔羅 Pro</h2>
+
+<div class="menu">
+<input id="question" placeholder="輸入你的問題...">
+
+<select id="spreadType">
+<option value="3">三張牌</option>
+<option value="1">每日一抽</option>
+</select>
+
+<br>
+<button onclick="init()">開始占卜</button>
+<button onclick="clearHistory()">清除紀錄</button>
+</div>
+
+<div id="capture">
+<div class="board" id="board"></div>
+<div id="report"></div>
+</div>
+
+<button onclick="save()">📸 存圖</button>
+<button onclick="share()">📤 分享</button>
+
+<script>
+
+const base = "https://upload.wikimedia.org/wikipedia/commons/";
+
+const cards = [
+"愚者","魔術師","女教皇","皇后","皇帝"
+];
+
+let deck = [];
+
+cards.forEach(n=>{
+    deck.push({
+        n,
+        img: base + "9/90/RWS_Tarot_00_Fool.jpg"
+    });
+});
+
+// Fisher-Yates
+function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+        let j=Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+}
+
+function init(){
+
+    let q=document.getElementById("question").value;
+
+    let shuf=[...deck];
+    shuffle(shuf);
+
+    let count=document.getElementById("spreadType").value;
+
+    let board=document.getElementById("board");
+    board.innerHTML="";
+
+    let result=[];
+
+    for(let i=0;i<count;i++){
+
+        let card=shuf.pop();
+        let rev=Math.random()>0.5;
+
+        result.push({card,rev});
+
+        let slot=document.createElement("div");
+        slot.className="card-slot";
+
+        slot.innerHTML=`
+        <div class="inner">
+        <div class="back">點我</div>
+        <div class="front ${rev?"reversed":""}">
+        <img src="${card.img}" crossorigin="anonymous">
+        </div>
+        </div>`;
+
+        slot.onclick=()=>{
+            slot.classList.add("flipped");
+        };
+
+        board.appendChild(slot);
+    }
+
+    render(q,result);
+    saveHistory(q,result);
+}
+
+function render(q,result){
+
+    let r=document.getElementById("report");
+    r.style.display="block";
+
+    let html=`<h3>🔮 問題：${q||"未輸入"}</h3>`;
+
+    result.forEach((x,i)=>{
+        html+=`<p>第${i+1}張：${x.card.n} (${x.rev?"逆":"正"})</p>`;
+    });
+
+    r.innerHTML=html;
+}
+
+function save(){
+
+    html2canvas(document.getElementById("capture"),{useCORS:true})
+    .then(canvas=>{
+        let url=canvas.toDataURL();
+
+        let a=document.createElement("a");
+        a.href=url;
+        a.download="tarot.png";
+        a.click();
+
+        // iOS fallback
+        window.open(url);
+    });
+}
+
+function share(){
+    if(navigator.share){
+        navigator.share({
+            title:"塔羅結果",
+            text:"我的占卜結果",
+            url:location.href
+        });
+    }else{
+        alert("此裝置不支援分享");
+    }
+}
+
+function saveHistory(q,result){
+    let data=JSON.parse(localStorage.getItem("tarot")||"[]");
+    data.push({q,result,date:new Date()});
+    localStorage.setItem("tarot",JSON.stringify(data));
+}
+
+function clearHistory(){
+    localStorage.removeItem("tarot");
+    alert("已清除");
+}
+
+</script>
+</body>
+</html>
