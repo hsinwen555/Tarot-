@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>星空靈感塔羅 - 終極決算版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --main: #4facfe; --bg: #000428; --gold: #ffd700; }
+        body { background: radial-gradient(circle at center, #004e92 0%, #000428 100%); color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 10px; min-height: 100vh; }
+        .menu { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--main); backdrop-filter: blur(10px); }
+        .board { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .card-slot { width: 90px; height: 155px; cursor: pointer; perspective: 1000px; }
+        .inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; }
+        .card-slot.flipped .inner { transform: rotateY(180deg); }
+        .front, .back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 10px; border: 2px solid var(--main); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .back { background: #004e92; color: var(--main); font-weight: bold; font-size: 11px; text-align: center; padding: 5px; }
+        .front { background: white; transform: rotateY(180deg); border-color: var(--gold); }
+        .front img { width: 100%; height: 100%; object-fit: cover; z-index: 2; position: relative; }
+        .reversed img { transform: rotate(180deg); }
+        .backup-name { position: absolute; color: #000; font-weight: bold; z-index: 1; font-size: 14px; }
+        #report { text-align: left; background: rgba(0,10,30,0.9); padding: 20px; border-radius: 12px; display: none; border: 1px solid var(--gold); margin-top: 20px; box-shadow: 0 0 20px rgba(255,215,0,0.2); }
+        .item { margin-bottom: 15px; border-left: 4px solid var(--gold); padding-left: 12px; font-size: 15px; line-height: 1.6; }
+        button { background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; padding: 12px 25px; border-radius: 25px; font-weight: bold; margin: 10px 5px; cursor: pointer; color: #000; transition: 0.3s; }
+        button:active { transform: scale(0.95); }
+        select { padding: 10px; border-radius: 8px; background: #001529; color: white; border: 1px solid var(--main); width: 100%; max-width: 280px; font-size: 16px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div style="max-width: 600px; margin: 0 auto;">
+        <h2 style="color: var(--gold); letter-spacing: 2px;">🌌 星空靈感塔羅</h2>
+        <div class="menu">
+            <select id="spreadType" onchange="init()">
+                <option value="1">✨ 每日一抽</option>
+                <option value="3">⌛ 聖三角 (過去/現在/未來)</option>
+                <option value="rel">💞 關係解碼 (你/他/連結)</option>
+                <option value="star">⭐️ 五芒星七位陣 (深度分析)</option>
+            </select><br>
+            <button onclick="init()">重新洗牌啟程</button>
+        </div>
+        <div id="capture">
+            <div class="board" id="board"></div>
+            <div id="report"><h3 style="color:var(--gold); margin-top:0;">📜 啟示報告</h3><div id="details"></div></div>
+        </div>
+        <button id="saveBtn" style="display:none; background:#ffd700;" onclick="save()">📸 保存解析結果</button>
+    </div>
+
+<script>
+    // 使用最穩定的 CDN 路徑
+    const base = "https://cdn.jsdelivr.net/gh/CiroSantilli/universal-test-files@master/images/tarot/rider-waite-smith/";
+    
+    const majF = ["00-the-fool","01-the-magician","02-the-high-priestess","03-the-empress","04-the-emperor","05-the-hierophant","06-the-lovers","07-the-chariot","08-strength","09-the-hermit","10-wheel-of-fortune","11-justice","12-the-hanged-man","13-death","14-temperance","15-the-devil","16-the-tower","17-the-star","18-the-moon","19-the-sun","20-judgement","21-the-world"];
+    const majL = ["愚者","魔術師","女教皇","皇后","皇帝","教皇","戀人","戰車","力量","隱士","命運之輪","正義","倒吊人","死神","節制","惡魔","高塔","星星","月亮","太陽","審判","世界"];
+    const majD = { "愚者":"開啟冒險。","魔術師":"資源具備。","女教皇":"直覺洞察。","皇后":"豐盛滋養。","皇帝":"建立秩序。","教皇":"傳統指引。","戀人":"關鍵抉擇。","戰車":"意志克服。","力量":"柔性能量。","隱士":"內省智慧。","命運之輪":"接受轉折。","正義":"誠實平衡。","倒吊人":"換位思考。","死神":"結束重生。","節制":"調和適中。","惡魔":"警惕執著。","高塔":"震撼重組。","星星":"希望平靜。","月亮":"穿透迷霧。","太陽":"光明快樂。","審判":"甦醒轉化。","世界":"圓滿達成。" };
+
+    const sN = {"權杖":"wands","聖杯":"cups","寶劍":"swords","錢幣":"pentacles"};
+    const rF = {"A":"ace","2":"02","3":"03","4":"04","5":"05","6":"06","7":"07","8":"08","9":"09","10":"10","侍者":"page","騎士":"knight","皇后":"queen","國王":"king"};
+    const sD = {"權杖":"行動能量","聖杯":"情感能量","寶劍":"思考能量","錢幣":"物質能量"};
+    const rD = {"A":"全新開端。","2":"權衡與選擇。","3":"初步合作。","4":"穩固守成。","5":"挑戰與變動。","6":"和諧回饋。","7":"防禦與堅持。","8":"效率與速度。","9":"成就與孤獨。","10":"圓滿傳承。","侍者":"學習消息。","騎士":"執行衝勁。","皇后":"掌控滋養。","國王":"權威經驗。"};
+
+    let deck = [];
+    majL.forEach((n, i) => deck.push({ n, img: `${base}${majF[i]}.jpg`, t:'M' }));
+    Object.keys(sN).forEach(s => Object.keys(rF).forEach(r => deck.push({ n: s+r, img: `${base}${sN[s]}-${rF[r]}.jpg`, t:'m', s, r })));
+
+    const spr = { "1":["啟示"],"3":["過去","現在","未來"],"rel":["你","他","連結"],"star":["核心","挑戰","策略","環境","結果","過去趨勢","未來展望"] };
+
+    function init() {
+        const type = document.getElementById('spreadType').value;
+        const b = document.getElementById('board');
+        b.innerHTML = ''; document.getElementById('report').style.display='none';
+        document.getElementById('details').innerHTML=''; document.getElementById('saveBtn').style.display='none';
+        let shuf = [...deck].sort(() => Math.random() - 0.5);
+        spr[type].forEach(pos => {
+            const card = shuf.pop();
+            const isR = Math.random() > 0.35;
+            const slot = document.createElement('div');
+            slot.className = 'card-slot';
+            slot.innerHTML = `<div class="inner"><div class="back">${pos}</div><div class="front ${isR?'reversed':''}"><div class="backup-name">${card.n}</div><img src="${card.img}" onerror="this.style.display='none'"></div></div>`;
+            slot.onclick = () => {
+                if(!slot.classList.contains('flipped')) {
+                    slot.classList.add('flipped');
+                    showRead(pos, card, isR);
+                    if(document.querySelectorAll('.flipped').length === spr[type].length) document.getElementById('saveBtn').style.display='inline-block';
+                }
+            };
+            b.appendChild(slot);
+        });
+    }
+
+    function showRead(p, c, r) {
+        document.getElementById('report').style.display='block';
+        let main = c.t === 'M' ? majD[c.n] : `${sD[c.s]}的${rD[c.r]}`;
+        let sub = r ? "（逆位提醒：能量流動受阻，建議冷靜回頭檢視心態。）" : "（正位導引：能量充足，適合積極採取行動。）";
+        document.getElementById('details').innerHTML += `<div class="item"><b>【${p}位】${c.n} (${r?'逆':'正'})</b><br>✦ 解讀：${main}<br>✦ 建議：${sub}</div>`;
+    }
+
+    async function save() {
+        const canvas = await html2canvas(document.getElementById('capture'), {backgroundColor:'#000428', useCORS: true, scale: 2});
+        const link = document.createElement('a'); link.download='塔羅解析.png'; link.href=canvas.toDataURL(); link.click();
+    }
+    init();
+</script>
+</body>
+</html>
