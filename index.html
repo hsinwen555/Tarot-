@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星空塔羅 AI（離線版）</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+body {
+    background: radial-gradient(circle,#004e92,#000428);
+    color:white;
+    font-family:sans-serif;
+    text-align:center;
+}
+
+.menu { margin:15px; }
+
+input {
+    padding:10px;
+    width:90%;
+    margin:5px;
+}
+
+.board {
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-top:20px;
+}
+
+.card {
+    width:90px;
+    height:140px;
+    background:#004e92;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+}
+
+#report {
+    display:none;
+    margin-top:20px;
+    background:#000;
+    padding:15px;
+    text-align:left;
+}
+
+button {
+    padding:10px 20px;
+    margin:5px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🔮 星空塔羅 AI（離線版）</h2>
+
+<div class="menu">
+<input id="question" placeholder="輸入你的問題（越具體越準）">
+<br>
+<button onclick="draw()">開始抽牌</button>
+</div>
+
+<div id="capture">
+<div class="board" id="board"></div>
+<div id="report"></div>
+</div>
+
+<button onclick="save()">📸 存圖</button>
+
+<script>
+
+// 塔羅資料（擴展感）
+const cards = [
+"愚者","魔術師","女教皇","皇后","皇帝",
+"戀人","戰車","力量","隱士","命運之輪",
+"正義","死神","節制","惡魔","高塔",
+"星星","月亮","太陽","審判","世界"
+];
+
+// 關鍵語料庫（模擬AI）
+const openings = [
+"你其實早就知道答案，只是還在猶豫。",
+"這組牌非常直接，它沒有在跟你繞彎。",
+"我必須說，這個狀態其實比你想的更關鍵。",
+"現在的你，正站在一個轉折點上。"
+];
+
+const emotions = [
+"內心其實有點不安",
+"正在壓抑某種情緒",
+"其實比表面更在意",
+"有種說不出的拉扯感"
+];
+
+const advice = [
+"你現在最需要的不是衝，而是看清楚。",
+"先穩住，再決定下一步。",
+"不要急著做決定，時機還沒完全成熟。",
+"這是一個適合重新整理自己的時期。"
+];
+
+let result = [];
+
+function draw(){
+
+    // 每日限制
+    let today = new Date().toDateString();
+    if(localStorage.getItem("tarot_date") === today){
+        alert("今天已抽過，明天再來 🔮");
+        return;
+    }
+    localStorage.setItem("tarot_date", today);
+
+    document.getElementById("board").innerHTML="🔮 宇宙洗牌中...";
+
+    setTimeout(()=>{
+
+        result = [];
+        let board = document.getElementById("board");
+        board.innerHTML="";
+
+        let pos = ["過去","現在","未來"];
+
+        for(let i=0;i<3;i++){
+
+            let name = cards[Math.floor(Math.random()*cards.length)];
+            let rev = Math.random()>0.5;
+
+            result.push({name,rev,pos:pos[i]});
+
+            let div=document.createElement("div");
+            div.className="card";
+            div.innerHTML="點我";
+
+            div.onclick=()=>{
+                div.innerHTML = `${name}<br>${rev?"逆":"正"}`;
+            };
+
+            board.appendChild(div);
+        }
+
+        generateReading();
+
+    },1200);
+}
+
+// 核心：假AI解讀
+function generateReading(){
+
+    const q = document.getElementById("question").value || "未提供問題";
+
+    const open = rand(openings);
+    const emo = rand(emotions);
+    const adv = rand(advice);
+
+    let cardText = result.map(r=>{
+        return `${r.pos}出現「${r.name}${r.rev?"（逆位）":"」"}`
+    }).join("，");
+
+    let text = `
+🔮 問題：${q}
+
+${open}
+
+從牌面來看，${cardText}，
+這代表你目前${emo}。
+
+整體來說，這並不是壞狀態，
+而是一個正在轉變的過程。
+
+👉 建議：
+${adv}
+
+✨ 這個結果，其實是在提醒你：
+很多答案，你早就知道了。
+`;
+
+    document.getElementById("report").style.display="block";
+    document.getElementById("report").innerText = text;
+}
+
+// 工具
+function rand(arr){
+    return arr[Math.floor(Math.random()*arr.length)];
+}
+
+// 存圖
+async function save(){
+    const canvas = await html2canvas(document.getElementById("capture"),{scale:2});
+    const url = canvas.toDataURL();
+    window.open(url);
+}
+
+</script>
+
+</body>
+</html>
