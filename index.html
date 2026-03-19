@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星空靈感塔羅 Pro - 全能排陣版</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+    :root { --main:#4facfe; --bg:#000428; --gold:#ffd700; }
+    body { background: radial-gradient(circle,#004e92,#000428); color:white; font-family: -apple-system, "Microsoft JhengHei", sans-serif; text-align:center; margin:0; padding:10px; min-height: 100vh; }
+    .menu { background:rgba(255,255,255,0.08); padding:15px; border-radius:12px; border:1px solid var(--main); margin-bottom: 20px; backdrop-filter: blur(10px); }
+    input, select { width:90%; padding:12px; margin:5px; border-radius:8px; background:#001529; color:white; border:1px solid var(--main); font-size: 16px; }
+    .board { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom: 20px; }
+    .card-slot { width:90px; height:150px; perspective:1000px; cursor: pointer; }
+    .inner { width:100%; height:100%; transition:0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style:preserve-3d; }
+    .card-slot.flipped .inner { transform:rotateY(180deg); }
+    .front,.back { position:absolute; width:100%; height:100%; border-radius:10px; backface-visibility:hidden; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    .back { background: linear-gradient(45deg, #004e92, #000428); border: 1px solid var(--main); color: var(--main); font-size: 11px; font-weight: bold; text-align: center; }
+    .front { background:white; transform:rotateY(180deg); border: 2px solid var(--gold); overflow: hidden; }
+    .front img { width:100%; height:100%; object-fit:cover; }
+    .reversed img { transform: rotate(180deg); }
+    #report { display:none; background:rgba(0,10,30,0.95); padding:25px; border-radius:15px; margin-top:20px; text-align:left; border: 1px solid var(--gold); line-height: 1.7; }
+    .item { margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .item b { color: var(--gold); font-size: 1.1em; display: block; margin-bottom: 3px; }
+    .analysis { font-size: 14px; color: #e0e0e0; }
+    .advice { color: var(--main); font-style: italic; font-size: 0.85em; display: block; margin-top: 5px; }
+    button { padding: 12px 24px; border:none; border-radius:25px; background:linear-gradient(135deg,#4facfe,#00f2fe); margin:5px; font-weight: bold; cursor: pointer; transition: 0.2s; color: #000; }
+    button:active { transform: scale(0.95); }
+</style>
+</head>
+<body>
+
+<div style="max-width: 650px; margin: 0 auto;">
+    <h2>🌌 星空靈感塔羅 Pro</h2>
+    <div class="menu">
+        <input id="question" placeholder="輸入您的提問...">
+        <select id="spreadType">
+            <option value="1">✨ 每日一抽 (靈魂啟示)</option>
+            <option value="3">⌛ 聖三角 (過去/現在/未來)</option>
+            <option value="choice">⚖️ 二選一決策 (方案A/方案B/核心建議)</option>
+            <option value="rel">💞 關係解碼 (你/他/連結點)</option>
+            <option value="star">⭐️ 五芒星七位陣 (核心/挑戰/環境/建議/結果/趨勢/展望)</option>
+        </select>
+        <br>
+        <button onclick="init()">啟動星空占卜</button>
+    </div>
+
+    <div id="capture">
+        <div class="board" id="board"></div>
+        <div id="report"></div>
+    </div>
+
+    <div style="margin-top:20px;">
+        <button onclick="save()" style="background:var(--gold);">📸 存圖分享報告</button>
+    </div>
+</div>
+
+<script>
+const base = "https://upload.wikimedia.org/wikipedia/commons/";
+// 擴充後的 22 張大阿爾克那路徑 (補齊後續)
+const cardData = [
+    { n: "愚者", p: "9/90/RWS_Tarot_00_Fool.jpg" },
+    { n: "魔術師", p: "d/de/RWS_Tarot_01_Magician.jpg" },
+    { n: "女教皇", p: "8/88/RWS_Tarot_02_High_Priestess.jpg" },
+    { n: "皇后", p: "a/af/RWS_Tarot_03_Empress.jpg" },
+    { n: "皇帝", p: "c/c3/RWS_Tarot_04_Emperor.jpg" },
+    { n: "教皇", p: "8/8d/RWS_Tarot_05_Hierophant.jpg" },
+    { n: "戀人", p: "3/3a/RWS_Tarot_06_Lovers.jpg" },
+    { n: "戰車", p: "9/9b/RWS_Tarot_07_Chariot.jpg" },
+    { n: "力量", p: "f/f5/RWS_Tarot_08_Strength.jpg" },
+    { n: "隱士", p: "4/4d/RWS_Tarot_09_Hermit.jpg" },
+    { n: "命運之輪", p: "3/3c/RWS_Tarot_10_Wheel_of_Fortune.jpg" },
+    { n: "正義", p: "e/e0/RWS_Tarot_11_Justice.jpg" },
+    { n: "倒吊人", p: "2/2b/RWS_Tarot_12_Hanged_Man.jpg" },
+    { n: "死神", p: "d/d7/RWS_Tarot_13_Death.jpg" },
+    { n: "節制", p: "f/f8/RWS_Tarot_14_Temperance.jpg" },
+    { n: "惡魔", p: "5/55/RWS_Tarot_15_Devil.jpg" },
+    { n: "高塔", p: "5/53/RWS_Tarot_16_Tower.jpg" },
+    { n: "星星", p: "d/db/RWS_Tarot_17_Star.jpg" },
+    { n: "月亮", p: "7/7f/RWS_Tarot_18_Moon.jpg" },
+    { n: "太陽", p: "1/17/RWS_Tarot_19_Sun.jpg" },
+    { n: "審判", p: "d/dd/RWS_Tarot_20_Judgement.jpg" },
+    { n: "世界", p: "f/ff/RWS_Tarot_21_World.jpg" }
+];
+
+const meanings = {
+    "愚者": { up: "純粹的開始。請暫時放下會計式的嚴謹精算，容許生命出現一段『預算外』的冒險。", rev: "暗示魯莽。請注意腳下的財務黑洞，避免在數據不足時盲目跳入新專案。", adv: "💡 建議：信任直覺，但確認基本的『保險分錄』已做完。" },
+    "魔術師": { up: "資源已全數到位。你擁有強大的意志與技術來實現目標，主動權在你手中。", rev: "才華被誤用或計畫停滯。可能你正試圖操控結果，卻忽略了基礎的邏輯建立。", adv: "💡 建議：專注於單一輸出點，能量分散會導致產能下降。" },
+    "死神": { up: "舊週期的必然終結。這不是毀滅，而是資產重組，為了騰出空間讓新計畫進入。", rev: "恐懼改變而產生的停滯。你正試圖挽留不再有增值空間的過往，這只會拖慢進度。", adv: "💡 建議：勇敢切斷虧損的分錄，迎接全新的循環。" },
+    "正義": { up: "公平的裁決與因果對齊。所有的帳目都將清晰，目前正處於一個追求平衡的關鍵點。", rev: "失衡或不公的對待。可能存在法律或規則上的盲點，需要重新審查邏輯。", adv: "💡 建議：誠實面對真相，唯有誠實能帶來真正的平衡。" },
+    "命運之輪": { up: "轉機已現。這是一個不可抗力的向上循環，請順應時勢，把握這股上升氣流。", rev: "暫時的低潮。環境變化超乎預期，建議守成，等待下一個有利的波段。", adv: "💡 建議：理解週期性，現在是順勢而為，而非逆流而上的時刻。" }
+};
+
+const spreadData = {
+    "1": ["啟示位"],
+    "3": ["過去/原因", "現在/處境", "未來/對策"],
+    "choice": ["方案 A 發展", "方案 B 發展", "核心建議"],
+    "rel": ["你的心態", "對方的狀態", "連結點/阻礙"],
+    "star": ["核心本質", "面臨挑戰", "外在環境", "行動建議", "最終結果", "過去趨勢", "未來展望"]
+};
+
+function init(){
+    let q = document.getElementById("question").value;
+    let type = document.getElementById("spreadType").value;
+    let posArr = spreadData[type];
+    let shuf = [...cardData].sort(() => Math.random() - 0.5);
+    let board = document.getElementById("board");
+    board.innerHTML = "";
+    let result = [];
+
+    for(let i=0; i<posArr.length; i++){
+        let card = shuf.pop();
+        let rev = Math.random() > 0.35;
+        result.push({ card, rev, pos: posArr[i] });
+
+        let slot = document.createElement("div");
+        slot.className = "card-slot";
+        slot.innerHTML = `<div class="inner"><div class="back">${posArr[i]}</div><div class="front ${rev?"reversed":""}"><img src="${base + card.p}" crossorigin="anonymous"></div></div>`;
+        slot.onclick = () => slot.classList.add("flipped");
+        board.appendChild(slot);
+    }
+    renderReport(q, result);
+}
+
+function renderReport(q, result){
+    let r = document.getElementById("report"); r.style.display = "block";
+    let html = `<h3>🔮 靈魂查帳報告：${q||"未輸入問題"}</h3>`;
+    result.forEach(x => {
+        const data = meanings[x.card.n] || { up: "能量正向發展中，代表目前態勢穩定。", rev: "能量目前處於盤整與回流階段，建議稍作停留。", adv: "💡 建議：穩定核心，等待時機。" };
+        html += `<div class="item"><b>【${x.pos}】${x.card.n} (${x.rev?'逆':'正'})</b><div class="analysis">${x.rev ? data.rev : data.up}</div><span class="advice">${data.adv}</span></div>`;
+    });
+    r.innerHTML = html;
+}
+
+function save(){
+    html2canvas(document.getElementById("capture"), { useCORS: true, backgroundColor: "#000428", scale: 2 }).then(canvas => {
+        let a = document.createElement("a"); a.href = canvas.toDataURL(); a.download = "星空占卜報告.png"; a.click();
+    });
+}
+</script>
+</body>
+</html>
