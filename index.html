@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星空塔羅 - 無限抽牌版</title>
+<style>
+:root { --primary:#FFD700; --accent:#00CED1; }
+body { font-family: "微軟正黑體", Arial; background:#0b0b0b; color:#eee; padding:20px; }
+h1 { text-align:center; color:var(--accent); font-size:2em; margin-bottom:20px; }
+input, select, button { padding:5px; margin:5px 0; }
+#board { display:flex; flex-wrap:wrap; justify-content:center; margin:20px 0; }
+.card { border:1px solid #444; border-radius:10px; padding:10px; margin:5px; width:130px; text-align:center; background:#111; transition: transform 0.2s; cursor:pointer; }
+.card:hover { transform: scale(1.05); }
+.reversed { background:#222; color:#ccc; }
+#report { display:block; background:#111; padding:15px; border:1px solid #444; border-radius:10px; margin-top:20px; }
+.oracle-section { margin-bottom:15px; padding:10px; border-bottom:1px dashed #666; }
+.oracle-title { font-weight:bold; color:var(--accent); }
+.advice-tag { display:inline-block; padding:2px 5px; border-radius:4px; background:#444; margin-right:5px; font-size:0.9em; }
+#summary { margin-top:15px; font-style:italic; color:var(--primary); }
+#allTarot { display:none; margin-top:20px; }
+</style>
+</head>
+<body>
+
+<h1>✦ 星空塔羅 ✦</h1>
+<input type="text" id="question" placeholder="請輸入你的問題..." style="width:80%;">
+<select id="spread">
+    <option value="1">今日運勢（1張）</option>
+    <option value="3">過去現在未來（3張）</option>
+    <option value="rel">關係星盤（5張）</option>
+    <option value="star">靈魂星盤（5張）</option>
+</select>
+<button onclick="draw()">抽牌</button>
+<button onclick="toggleAllTarot()">顯示所有牌</button>
+
+<div id="board"></div>
+<div id="report"></div>
+<div id="allTarot"><div id="tarotList"></div></div>
+
+<script>
+//------------------塔羅資料------------------
+const tarotData = {
+    majors: [
+        { name: "愚者", symbol: "🃏", up: "純真與無限可能", rev: "盲目與魯莽衝動" },
+        { name: "魔術師", symbol: "🪄", up: "掌握資源與顯化", rev: "能力錯位或欺瞞" },
+        { name: "女教皇", symbol: "🌙", up: "內在直覺與靜默", rev: "隱瞞與忽略直覺" },
+        { name: "女皇", symbol: "🌿", up: "感官享受與豐盛", rev: "情感索求或匱乏" },
+        { name: "皇帝", symbol: "👑", up: "穩定結構與權威", rev: "掌控欲強或僵化" },
+        { name: "教皇", symbol: "🕊️", up: "傳統價值與指引", rev: "盲從或打破規範" },
+        { name: "戀人", symbol: "❤️", up: "和諧選擇與結合", rev: "價值觀衝突或逃避" },
+        { name: "戰車", symbol: "⚔️", up: "意志力與跨越障礙", rev: "失去平衡或侵略性" },
+        { name: "力量", symbol: "🦁", up: "溫柔的掌控力", rev: "自我懷疑或焦慮" },
+        { name: "隱士", symbol: "🕯️", up: "內省與真理追尋", rev: "孤立感或逃避現實" },
+        { name: "命運之輪", symbol: "🎡", up: "不可逆的轉折點", rev: "時機未到或抵抗改變" },
+        { name: "正義", symbol: "⚖️", up: "平衡與因果責任", rev: "不公平或推卸責任" },
+        { name: "倒吊人", symbol: "🦶", up: "換位思考與等待", rev: "無謂犧牲或拖延" },
+        { name: "死神", symbol: "💀", up: "徹底終結與重生", rev: "執著過去或恐懼改變" },
+        { name: "節制", symbol: "🏺", up: "煉金術式的融合", rev: "極端行為或溝通不良" },
+        { name: "惡魔", symbol: "🔥", up: "慾望與物質束縛", rev: "意識覺醒與解脫" },
+        { name: "高塔", symbol: "⚡", up: "結構崩解與真相", rev: "延緩災難或拒絕現實" },
+        { name: "星星", symbol: "✨", up: "希望與靈感湧現", rev: "信心瓦解或幻滅" },
+        { name: "月亮", symbol: "🔮", up: "潛意識與迷霧", rev: "恐懼消散或揭開真相" },
+        { name: "太陽", symbol: "☀️", up: "明晰與生命力", rev: "短暫失落或過度樂觀" },
+        { name: "審判", symbol: "🎺", up: "重生召喚與清晰", rev: "拒絕改變或自我審判" },
+        { name: "世界", symbol: "🌍", up: "階段圓滿與統合", rev: "缺乏收尾或延遲完成" }
+    ],
+    suits: {
+        "權杖": { sym: "🔥", element: "火", upKeywords: "積極進展、動力十足", revKeywords: "能量阻滯、方向迷失" },
+        "聖杯": { sym: "💧", element: "水", upKeywords: "情感豐沛、人際和諧", revKeywords: "情感淤積、情緒波動" },
+        "寶劍": { sym: "🌪️", element: "風", upKeywords: "思維清晰、決斷力強", revKeywords: "思維混亂、溝通障礙" },
+        "錢幣": { sym: "🌱", element: "地", upKeywords: "穩定成長、基礎穩固", revKeywords: "基礎動搖、資源匱乏" }
+    }
+};
+
+//------------------小阿爾卡納專業解析------------------
+const minorArcanaRef = {
+    rankCore: {
+        1:"開端與新機會", 2:"決策與平衡", 3:"初步成果與擴張", 4:"穩定與鞏固", 5:"衝突與挑戰",
+        6:"成功與回饋", 7:"評估與智慧", 8:"速度與行動", 9:"即將完成", 10:"圓滿或終結",
+        "侍者":"訊息與學習","騎士":"衝鋒與行動","皇后":"內斂與守護","國王":"掌控與領導"
+    },
+    suggestions:{
+        // 完整矩陣略，可用前面提供的 56 張小阿爾卡納行動建議
+    }
+};
+
+//------------------初始化牌組------------------
+let fullDeck = [];
+function init() {
+    fullDeck = [...tarotData.majors];
+    Object.keys(tarotData.suits).forEach(s=>{
+        Object.keys(minorArcanaRef.rankCore).forEach(r=>{
+            let name = (r==1)?`${s}王牌`:`${s}${r}`;
+            let sInfo = tarotData.suits[s];
+            fullDeck.push({
+                name, symbol:sInfo.sym,
+                up:`在【${sInfo.element}】領域，${minorArcanaRef.rankCore[r]}的${sInfo.upKeywords}。`,
+                rev:`在【${sInfo.element}】領域，${minorArcanaRef.rankCore[r]}的${sInfo.revKeywords}。`
+            });
+        });
+    });
+}
+init();
+
+//------------------讀牌邏輯------------------
+function getProfessionalAdvice(card, isRev, label){
+    const n = card.name;
+    let ins="", act="";
+    let suit="", rank="";
+    if(n.startsWith("權杖")) suit="權杖";
+    else if(n.startsWith("聖杯")) suit="聖杯";
+    else if(n.startsWith("寶劍")) suit="寶劍";
+    else if(n.startsWith("錢幣")) suit="錢幣";
+    rank = suit?n.replace(suit,""):"";
+    if(rank==="王牌") rank=1;
+    if(!suit){
+        ins = isRev?`【靈魂試煉】「${label}」遇內在抗拒，請面對恐懼。`:`【天命印證】「${label}」展現原型力量。`;
+        act = isRev?"【向內求索】閉眼聆聽直覺。":"【果敢決策】勇敢做出決定，宇宙會支持你。";
+    } else {
+        const sInfo=tarotData.suits[suit];
+        ins = isRev?`【阻滯】「${label}」正處於能量掙扎期。`:`【進展】「${label}」正踏在學習與累積路。`;
+        act = isRev?`【${sInfo.element}：調整】逆位建議：停下整理資源。`:`【${sInfo.element}：啟動】正位建議：順應直覺採取行動。`;
+    }
+    return { insight:ins, action:act };
+}
+
+//------------------抽牌------------------
+const spreads = {
+    "1":["今日運勢"],"3":["過去背景","現在現狀","未來趨勢"],
+    "rel":["你的內在","對方的投影","互動模式","核心障礙","最終建議"],
+    "star":["現實根基","情感流動","意志行動","思維智慧","靈魂啟示"]
+};
+
+function draw(){
+    const spreadKey = document.getElementById('spread').value;
+    const labels = spreads[spreadKey];
+    const shuffled = [...fullDeck].sort(()=>0.5-Math.random());
+    const selected = shuffled.slice(0, labels.length);
+    const board=document.getElementById('board');
+    const report=document.getElementById('report');
+    board.innerHTML=''; report.innerHTML=`<h2 style="text-align:center;color:var(--accent)">✦ 占卜報告 ✦</h2>`;
+    
+    let suitCount = {"權杖":0,"聖杯":0,"寶劍":0,"錢幣":0};
+    
+    selected.forEach((card,i)=>{
+        const isRev=Math.random()>0.5;
+        const advice=getProfessionalAdvice(card,isRev,labels[i]);
+        let suitKey = card.name.match(/^(權杖|聖杯|寶劍|錢幣)/);
+        if(suitKey) suitCount[suitKey[0]]++;
+        const cardDiv=document.createElement('div');
+        cardDiv.className=`card ${isRev?'reversed':''}`;
+        cardDiv.innerHTML=`<div>${card.symbol}</div><div>${card.name}</div><div>${isRev?'逆位':'正位'}</div><div>${labels[i]}</div>`;
+        board.appendChild(cardDiv);
+
+        report.innerHTML+=`<div class="oracle-section">
+        <span class="oracle-title">${labels[i]}：${card.name} (${isRev?'逆位':'正位'})</span>
+        <p><span class="advice-tag">啟示</span>${isRev?card.rev:card.up}</p>
+        <p><span class="advice-tag">洞察</span>${advice.insight}</p>
+        <p style="color:var(--primary); font-weight:bold;"><span class="advice-tag" style="background:var(--primary);color:#000;">行動</span>${advice.action}</p>
+        </div>`;
+    });
+    
+    report.innerHTML+=`<div id="summary">花色分布分析：${Object.keys(suitCount).map(k=>`${k}:${suitCount[k]}`).join(" | ")}</div>`;
+}
+
+//------------------全部牌列表------------------
+function toggleAllTarot(){
+    const list=document.getElementById('tarotList');
+    const container=document.getElementById('allTarot');
+    if(container.style.display==='block'){container.style.display='none';return;}
+    list.innerHTML = fullDeck.map(c=>`<div class="oracle-section"><strong>${c.symbol} ${c.name}</strong><br>正：${c.up}<br>逆：${c.rev}</div>`).join('');
+    container.style.display='block';
+}
+</script>
+
+</body>
+</html>
