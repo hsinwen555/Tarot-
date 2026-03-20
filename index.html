@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星空塔羅 - 專業大師解讀版</title>
+    <style>
+        :root { --primary:#FFD700; --accent:#00CED1; --bg:#0b0b0b; --card-border:#444; }
+        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background:var(--bg); color:#eee; padding:20px; line-height: 1.6; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { text-align:center; color:var(--accent); letter-spacing: 5px; text-shadow: 0 0 10px var(--accent); }
+        .controls { background: #1a1a1a; padding: 20px; border-radius: 15px; margin-bottom: 20px; text-align: center; }
+        input, select, button { padding:10px; margin:5px; border-radius: 8px; border: 1px solid #333; }
+        button { background: var(--accent); color: #000; font-weight: bold; cursor: pointer; transition: 0.3s; border: none; }
+        button:hover { background: var(--primary); transform: translateY(-2px); }
+        #board { display:flex; flex-wrap:wrap; justify-content:center; gap: 15px; margin: 20px 0; }
+        .card { border:1px solid var(--card-border); border-radius:12px; padding:15px; width:120px; text-align:center; background:linear-gradient(145deg, #111, #222); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .card .sym { font-size: 2.5em; margin-bottom: 5px; }
+        .card .pos-label { font-size: 0.8em; color: var(--accent); margin-top: 10px; display: block; border-top: 1px solid #333; padding-top: 5px; }
+        .reversed { transform: rotate(180deg); border-color: var(--primary); }
+        .reversed .pos-label { transform: rotate(-180deg); }
+        #report { display:none; background:#161616; padding:25px; border-radius:15px; border:1px solid #333; }
+        .oracle-section { margin-bottom:25px; padding-bottom:15px; border-bottom:1px solid #333; }
+        .oracle-title { font-weight:bold; color:var(--primary); font-size: 1.1em; display: block; margin-bottom: 10px; }
+        .advice-tag { display:inline-block; padding:3px 8px; border-radius:4px; background:#333; margin-right:8px; font-size:0.85em; vertical-align: middle; }
+        .summary-box { background: rgba(0, 206, 209, 0.1); padding: 15px; border-radius: 10px; border: 1px solid var(--accent); margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>✦ 星 空 塔 羅 ✦</h1>
+    <div class="controls">
+        <input type="text" id="question" placeholder="冥想你的問題..." style="width:70%;">
+        <select id="spread">
+            <option value="1">今日啟示 (1張)</option>
+            <option value="3">時間之流 (3張)</option>
+            <option value="rel">關係星盤 (5張)</option>
+            <option value="star">靈魂星盤 (5張)</option>
+        </select>
+        <button onclick="draw()">開啟星門</button>
+    </div>
+
+    <div id="board"></div>
+    <div id="report"></div>
+</div>
+
+<script>
+const tarotData = {
+    majors: [
+        { name: "愚者", symbol: "🃏", up: "純真與無限可能", rev: "盲目與魯莽衝動" },
+        { name: "魔術師", symbol: "🪄", up: "掌握資源與顯化", rev: "能力錯位或欺瞞" },
+        { name: "女教皇", symbol: "🌙", up: "內在直覺與靜默", rev: "隱瞞與忽略直覺" },
+        { name: "女皇", symbol: "🌿", up: "感官享受與豐盛", rev: "情感索求或匱乏" },
+        { name: "皇帝", symbol: "👑", up: "穩定結構與權威", rev: "掌控欲強或僵化" },
+        { name: "教皇", symbol: "🕊️", up: "傳統價值與指引", rev: "盲從或打破規範" },
+        { name: "戀人", symbol: "❤️", up: "和諧選擇與結合", rev: "價值觀衝突或逃避" },
+        { name: "戰車", symbol: "⚔️", up: "意志力與跨越障礙", rev: "失去平衡或侵略性" },
+        { name: "力量", symbol: "🦁", up: "溫柔的掌控力", rev: "自我懷疑或焦慮" },
+        { name: "隱士", symbol: "🕯️", up: "內省與真理追尋", rev: "孤立感或逃避現實" },
+        { name: "命運之輪", symbol: "🎡", up: "不可逆的轉折點", rev: "時機未到或抵抗改變" },
+        { name: "正義", symbol: "⚖️", up: "平衡與因果責任", rev: "不公平或推卸責任" },
+        { name: "倒吊人", symbol: "🦶", up: "換位思考與等待", rev: "無謂犧牲或拖延" },
+        { name: "死神", symbol: "💀", up: "徹底終結與重生", rev: "執著過去或恐懼改變" },
+        { name: "節制", symbol: "🏺", up: "煉金術式的融合", rev: "極端行為或溝通不良" },
+        { name: "惡魔", symbol: "🔥", up: "慾望與物質束縛", rev: "意識覺醒與解脫" },
+        { name: "高塔", symbol: "⚡", up: "結構崩解與真相", rev: "延緩災難或拒絕現實" },
+        { name: "星星", symbol: "✨", up: "希望與靈感湧現", rev: "信心瓦解或幻滅" },
+        { name: "月亮", symbol: "🔮", up: "潛意識與迷霧", rev: "恐懼消散或揭開真相" },
+        { name: "太陽", symbol: "☀️", up: "明晰與生命力", rev: "短暫失落或過度樂觀" },
+        { name: "審判", symbol: "🎺", up: "重生召喚與清晰", rev: "拒絕改變或自我審判" },
+        { name: "世界", symbol: "🌍", up: "階段圓滿與統合", rev: "缺乏收尾或延遲完成" }
+    ],
+    suits: {
+        "權杖": { sym: "🔥", element: "火(行動)", trait: "熱情、競爭、創造力" },
+        "聖杯": { sym: "💧", element: "水(情感)", trait: "愛、直覺、感受" },
+        "寶劍": { sym: "🌪️", element: "風(思維)", trait: "邏輯、衝突、溝通" },
+        "錢幣": { sym: "🌱", element: "地(現實)", trait: "金錢、穩定、感官" }
+    }
+};
+
+const minorRankMeanings = {
+    1:"新契機與原始能量", 2:"二元平衡與觀望", 3:"初步擴張與合作", 4:"穩固結構與封閉", 5:"衝突、失落與變動",
+    6:"交流、援助與和諧", 7:"評估、策略與掙扎", 8:"速度、能量與變動", 9:"即將達成與內在轉化", 10:"最終結果與極致",
+    "侍者":"訊息、好奇與新計畫", "騎士":"衝刺、劇變與行動力", "皇后":"內斂、情感化與守護", "國王":"領導、理智與掌控力"
+};
+
+let fullDeck = [];
+function init() {
+    fullDeck = [...tarotData.majors];
+    Object.keys(tarotData.suits).forEach(s => {
+        Object.keys(minorRankMeanings).forEach(r => {
+            let name = (r == 1) ? `${s}王牌` : `${s}${r}`;
+            fullDeck.push({ name, symbol: tarotData.suits[s].sym, suitKey: s, rankKey: r });
+        });
+    });
+}
+init();
+
+function getProfessionalAdvice(card, isRev, label) {
+    let ins = "", act = "";
+    if (!card.suitKey) { // 大牌邏輯
+        ins = isRev ? `【靈魂試煉】此時的「${label}」遇到內在抗拒，可能是你試圖用舊思維處理新命運。` : `【天命印證】「${label}」展現原型力量，這是不容忽視的生命階段。`;
+        act = isRev ? "【向內求索】放下防衛，聽聽潛意識在怕什麼。" : "【果敢決策】順應天命，這是一個適合開啟大計畫的時刻。";
+    } else { // 小牌邏輯
+        const suit = tarotData.suits[card.suitKey];
+        const rankMean = minorRankMeanings[card.rankKey];
+        ins = isRev ? `【${suit.element}能量淤塞】在「${label}」中，${rankMean}的過程遇到了阻礙或過度消耗。` : `【${suit.element}能量流動】「${label}」顯示你正處於${rankMean}的正確路徑上。`;
+        
+        // 根據花色給予行動建議
+        if(card.suitKey === "權杖") act = isRev ? "建議暫緩行動，過度的衝動會燒毀你的熱情。" : "現在需要爆發力，請像火焰一樣去競爭與開創。";
+        else if(card.suitKey === "聖杯") act = isRev ? "情緒正在干擾判斷，請先退回到安全區療癒自己。" : "敞開心胸去接受愛與直覺，這是感性勝過理性的時刻。";
+        else if(card.suitKey === "寶劍") act = isRev ? "思維陷入死胡同，請停止自我批判與無意義的爭論。" : "保持冷靜與客觀，現在需要你用理智切斷亂麻。";
+        else if(card.suitKey === "錢幣") act = isRev ? "現實基礎動搖，請審視你的財務與健康狀況，不宜冒險。" : "腳踏實地，小小的累積將會換來巨大的穩定收穫。";
+    }
+    return { insight: ins, action: act };
+}
+
+const spreads = {
+    "1": ["今日運勢"], "3": ["過去背景", "現在現狀", "未來趨勢"],
+    "rel": ["你的內在", "對方的投影", "互動模式", "核心障礙", "最終建議"],
+    "star": ["現實根基", "情感流動", "意志行動", "思維智慧", "靈魂啟示"]
+};
+
+function draw() {
+    const spreadKey = document.getElementById('spread').value;
+    const labels = spreads[spreadKey];
+    const shuffled = [...fullDeck].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, labels.length);
+    const board = document.getElementById('board');
+    const report = document.getElementById('report');
+    
+    board.innerHTML = ''; report.style.display = 'block';
+    report.innerHTML = `<h2 style="text-align:center;color:var(--accent)">✧ 占 卜 啟 示 ✧</h2>`;
+    
+    let stats = { major: 0, 權杖: 0, 聖杯: 0, 寶劍: 0, 錢幣: 0 };
+    
+    selected.forEach((card, i) => {
+        const isRev = Math.random() > 0.5;
+        const advice = getProfessionalAdvice(card, isRev, labels[i]);
+        if (!card.suitKey) stats.major++; else stats[card.suitKey]++;
+
+        const cardDiv = document.createElement('div');
+        cardDiv.className = `card ${isRev ? 'reversed' : ''}`;
+        cardDiv.innerHTML = `<div class="sym">${card.symbol}</div><div>${card.name}</div><div style="font-size:0.9em">${isRev ? '逆位' : '正位'}</div><span class="pos-label">${labels[i]}</span>`;
+        board.appendChild(cardDiv);
+
+        report.innerHTML += `<div class="oracle-section">
+            <span class="oracle-title">${labels[i]}：${card.name} (${isRev ? '逆位' : '正位'})</span>
+            <p><span class="advice-tag">啟示</span>${isRev ? (card.rev || "能量受阻") : (card.up || "能量順暢")}</p>
+            <p><span class="advice-tag">洞察</span>${advice.insight}</p>
+            <p style="color:var(--primary); font-weight:bold;"><span class="advice-tag" style="background:var(--primary);color:#000;">建議</span>${advice.action}</p>
+        </div>`;
+    });
+
+    // 牌陣大師總結
+    let summaryText = "本次牌陣顯示：";
+    if (stats.major >= labels.length / 2) summaryText += "大牌佔比較高，這代表你目前的問題屬於「命運轉折點」，受環境或業力影響較大，個人選擇需順應天時。";
+    else if (stats.寶劍 > 1) summaryText += "寶劍能量過強，你可能正陷入過度思考或言語衝突中，請降低心智的雜音。";
+    else if (stats.聖杯 > 1) summaryText += "聖杯能量顯著，這是一個關於情感與內在滿足的課題，請多關注直覺。";
+    else if (stats.權杖 > 1) summaryText += "權杖能量主導，現在是需要行動與勇氣的時刻，不要再觀望。";
+    else if (stats.錢幣 > 1) summaryText += "錢幣能量豐富，這是一個關於现实利益與穩定的時期，腳踏實地是關鍵。";
+    else summaryText += "能量分布均衡，代表你正處於多元並行的生活階段，各方面都需要兼顧。";
+
+    report.innerHTML += `<div class="summary-box">🔮 <strong>占卜師總結：</strong><br>${summaryText}</div>`;
+}
+</script>
+</body>
+</html>
