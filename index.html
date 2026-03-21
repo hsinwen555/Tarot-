@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星空啟示 - 大師完整神諭</title>
+    <style>
+        :root { --primary: #FFD700; --accent: #00CED1; --bg: #0a0f1d; --card-bg: rgba(15, 25, 45, 0.95); }
+        body { font-family: "微軟正黑體", sans-serif; background: radial-gradient(circle, #1b2735 0%, #080a0f 100%); color: #eee; margin: 0; padding: 20px; min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; text-align: center; }
+        .control-panel { background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 15px; border: 1px solid #444; margin-bottom: 30px; }
+        select, button { padding: 12px 20px; border-radius: 8px; border: none; font-size: 1em; cursor: pointer; transition: 0.3s; }
+        select { background: #222; color: #fff; border: 1px solid #444; }
+        button.primary { background: var(--accent); color: #000; font-weight: bold; }
+        #board { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+        .card { width: 130px; padding: 20px; background: var(--card-bg); border: 2px solid #333; border-radius: 15px; transition: 0.6s; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .card.reversed { transform: rotate(180deg); border-color: #ff4d4d; }
+        #report { max-width: 700px; margin: 40px auto; background: rgba(0, 0, 0, 0.85); padding: 30px; border-radius: 20px; border: 1px solid #444; text-align: left; display: none; }
+        .oracle-item { border-bottom: 1px solid #333; padding: 20px 0; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .tag { color: var(--accent); font-weight: bold; display: block; margin-bottom: 8px; }
+        .master-quote { color: var(--primary); font-style: italic; border-left: 2px solid var(--primary); padding-left: 12px; margin-top: 12px; }
+        .summary-box { margin-top: 30px; padding: 20px; border-radius: 12px; font-weight: bold; text-align: center; border: 2px solid; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 style="color:var(--accent); text-shadow: 0 0 15px var(--accent);">✦ 星 空 啟 示 ✦</h1>
+    <div class="control-panel">
+        <select id="spreadSelect">
+            <option value="yesno">Yes or No (決策判定)</option>
+            <option value="3">三時空 (過去/現在/未來)</option>
+            <option value="love">感情讀心 (互動與建議)</option>
+        </select>
+        <button class="primary" onclick="draw()">聆聽大師神諭</button>
+    </div>
+    <div id="board"></div>
+    <div id="report"><div id="reportContent"></div></div>
+</div>
+
+<script>
+// ==== 大師解讀數據庫 (78張完整版邏輯) ====
+const tarotData = {
+    majors: [
+        {n:"愚者", s:"🃏", w:0.1, u:"冒險與純真的開端", r:"魯莽與不負責任的行為"},
+        {n:"魔術師", s:"🪄", w:0.5, u:"萬事俱備的行動力", r:"能量受阻或欺瞞幻術"},
+        {n:"女祭司", s:"🌙", w:0.2, u:"直覺與內在的智慧", r:"被隱瞞的真相或忽視本能"},
+        {n:"皇后", s:"👸", w:0.6, u:"豐盛與生命力的綻放", r:"創造力受阻或過度沉溺"},
+        {n:"皇帝", s:"👑", w:0.4, u:"穩定架構與威嚴領導", r:"權力的濫用或固執僵化"},
+        {n:"教皇", s:"🕍", w:0.3, u:"傳統智慧與契約約束", r:"打破陳規或虛偽的教條"},
+        {n:"戀人", s:"❤️", w:0.5, u:"情感契合與神聖抉擇", r:"關係失衡或錯誤的選擇"},
+        {n:"戰車", s:"🛡️", w:0.6, u:"意志堅定的勝利前行", r:"方向失控或過度的侵略"},
+        {n:"力量", s:"🦁", w:0.6, u:"溫柔而強大的內在力量", r:"自我懷疑或情緒失控"},
+        {n:"隱士", s:"🕯️", w:-0.1, u:"追尋真理的內心獨白", r:"孤立無援或迷失方向"},
+        {n:"命運之輪", s:"🎡", w:0.5, u:"轉機與命運的順流", r:"厄運糾纏或外部阻礙"},
+        {n:"正義", s:"⚖️", w:0.3, u:"公平決策與真相大白", r:"不公的判決或逃避責任"},
+        {n:"吊人", s:"🦶", w:-0.2, u:"神聖的犧牲與換位思考", r:"徒勞的等待或無謂的堅持"},
+        {n:"死神", s:"💀", w:-1.0, u:"必然的結束與重生", r:"抗拒改變導致的停滯"},
+        {n:"節制", s:"🍷", w:0.5, u:"平衡調和後的療癒", r:"極端的衝突與能量失衡"},
+        {n:"惡魔", s:"😈", w:-0.8, u:"慾望的束縛與物質陷阱", r:"覺醒並重獲自由的靈魂"},
+        {n:"高塔", s:"⚡", w:-1.2, u:"虛偽建築的意外崩塌", r:"延遲的震撼與受困恐懼"},
+        {n:"星星", s:"✨", w:0.8, u:"洗滌心靈的希望之光", r:"灰心喪志或缺乏靈感"},
+        {n:"月亮", s:"🌖", w:-0.4, u:"不安的直覺與迷霧", r:"真相揭曉或消除恐懼"},
+        {n:"太陽", s:"☀️", w:1.2, u:"極致喜悅與成功的照耀", r:"被暫時掩蓋的光芒"},
+        {n:"審判", s:"🎺", w:0.6, u:"靈魂的召喚與重大重生", r:"猶豫不決或拒絕覺醒"},
+        {n:"世界", s:"🌍", w:1.0, u:"達成目標的圓滿終點", r:"停滯不前或欠缺臨門一腳"}
+    ],
+    suits: {
+        "權杖": ["🔥", 0.2, {1:"意志萌芽", 4:"穩固繁榮", 5:"紛擾角逐", 10:"過度負荷", "騎士":"衝勁前行", "國王":"權威領導"}],
+        "聖杯": ["💧", 0.1, {1:"情感湧現", 4:"冷淡退縮", 5:"哀悼失落", 10:"美滿歸宿", "騎士":"浪漫追求", "國王":"情感掌控"}],
+        "寶劍": ["🌪️", -0.3, {1:"理智開端", 3:"刺穿心靈的傷", 4:"靜止修復", 8:"束手無策", 10:"絕對終結", "國王":"專業評判"}],
+        "錢幣": ["🌱", 0.15, {1:"財務契機", 4:"穩固掌控與守護", 5:"物質匱乏", 10:"傳承豐饒", "侍者":"踏實學習", "國王":"卓越成就"}]
+    }
+};
+
+let deck = [];
+function initDeck() {
+    tarotData.majors.forEach(m => deck.push({name: m.n, sym: m.s, weight: m.w, up: m.u, rev: m.r}));
+    const ranks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "侍者", "騎士", "皇后", "國王"];
+    for (let s in tarotData.suits) {
+        let [sym, baseW, keys] = tarotData.suits[s];
+        ranks.forEach(r => {
+            let n = (r === 1) ? `${s}王牌` : `${s}${r}`;
+            let upK = keys[r] || `${s}的發展過程`;
+            let revK = `${upK}(受阻或反轉)`;
+            
+            // 錢幣 4 與 聖杯騎士 專屬修正
+            if (s === "錢幣" && r === 4) revK = "失去控制或學會放手";
+            if (s === "聖杯" && r === "騎士") revK = "虛情假意或情緒化的陷阱";
+            
+            let w = baseW + ([1, 10, "國王"].includes(r) ? 0.2 : ([5, 8, 10].includes(r) ? -0.4 : 0));
+            deck.push({name: n, sym: sym, weight: w, up: upK, rev: revK});
+        });
+    }
+}
+initDeck();
+
+function draw() {
+    const spreadKey = document.getElementById('spreadSelect').value;
+    const configs = { "yesno":["天啟判定"],"3":["過去","現在","未來"],"love":["你的狀態","對方的狀態","互動能量","核心障礙","建議"] };
+    const labels = configs[spreadKey];
+    const selected = [...deck].sort(() => 0.5 - Math.random()).slice(0, labels.length);
+    
+    let totalYes = 0;
+    const board = document.getElementById('board');
+    const reportContent = document.getElementById('reportContent');
+    board.innerHTML = ""; reportContent.innerHTML = `<h2 style="text-align:center; color:var(--accent);">✦ 大 師 神 諭 ✦</h2>`;
+    document.getElementById('report').style.display = 'block';
+
+    selected.forEach((card, i) => {
+        const isRev = Math.random() > 0.5;
+        // 核心邏輯：正逆位與權重強關聯
+        let prob = isRev ? 0.15 : 0.85;
+        let finalProb = Math.max(0.05, Math.min(0.95, prob + card.weight));
+        const isYes = Math.random() < finalProb;
+        if(isYes) totalYes++;
+
+        board.innerHTML += `
+            <div class="card ${isRev?'reversed':''}">
+                <div style="font-size:2.8em;">${card.sym}</div>
+                <div style="font-weight:bold;margin-top:10px;">${card.name}</div>
+                <div style="font-size:0.85em;color:var(--primary)">${isRev?'逆位 Orient':'正位 Orient'}</div>
+            </div>`;
+
+        const currentMeaning = isRev ? card.rev : card.up;
+        let masterQuote = isYes 
+            ? `目前的能量展現為「${currentMeaning}」。大師看見了順行的光芒，這是你可以信賴的方向。` 
+            : `目前的能量受困於「${currentMeaning}」。大師告誡：此時強求必將受創，請靜候時機。`;
+
+        reportContent.innerHTML += `
+            <div class="oracle-item">
+                <span class="tag">【${labels[i]}】</span>
+                <strong>${card.name} (${isRev?'逆位':'正位'})</strong>
+                <p>牌義：${currentMeaning}</p>
+                ${spreadKey==='yesno' ? `<p style="color:${isYes?'var(--accent)':'#ff4d4d'}">判定：<strong>${isYes?'Yes':'No'}</strong></p>` : ''}
+                <p class="master-quote">${masterQuote}</p>
+            </div>`;
+    });
+
+    const ratio = totalYes / labels.length;
+    let sText, sColor;
+    if(ratio >= 0.7) { sText = "大師結論：順應天命，此行必成。"; sColor = "var(--accent)"; }
+    else if(ratio >= 0.4) { sText = "大師結論：吉凶參半，守成為上。"; sColor = "var(--primary)"; }
+    else { sText = "大師結論：星光黯淡，切莫強求。"; sColor = "#ff4d4d"; }
+
+    reportContent.innerHTML += `<div class="summary-box" style="border-color:${sColor}; color:${sColor};">${sText}</div>`;
+    window.scrollTo({ top: board.offsetTop - 50, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
