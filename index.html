@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星空啟示 - 大師終極神諭</title>
+    <style>
+        :root { --primary: #FFD700; --accent: #00CED1; --bg: #0a0f1d; }
+        body { font-family: "微軟正黑體", sans-serif; background: radial-gradient(circle, #1b2735 0%, #080a0f 100%); color: #eee; margin: 0; padding: 20px; line-height: 1.6; }
+        .container { max-width: 900px; margin: 0 auto; text-align: center; }
+        .control-panel { background: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 15px; border: 1px solid #444; margin-bottom: 30px; }
+        select, button { padding: 12px 20px; border-radius: 8px; border: none; font-size: 1em; cursor: pointer; }
+        button.primary { background: var(--accent); color: #000; font-weight: bold; transition: 0.3s; }
+        button.primary:hover { box-shadow: 0 0 15px var(--accent); }
+        #board { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+        .card { width: 130px; padding: 20px; background: rgba(15, 25, 45, 0.95); border: 2px solid #333; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .card.reversed { transform: rotate(180deg); border-color: #8b0000; }
+        #report { max-width: 750px; margin: 40px auto; background: rgba(0, 0, 0, 0.85); padding: 35px; border-radius: 25px; text-align: left; display: none; border: 1px solid #444; }
+        .oracle-item { border-bottom: 1px solid #333; padding: 25px 0; }
+        .tag { color: var(--accent); font-weight: bold; border-bottom: 1px solid var(--accent); margin-bottom: 10px; display: inline-block; }
+        .master-quote { color: var(--primary); font-style: italic; border-left: 3px solid var(--primary); padding-left: 15px; margin-top: 15px; background: rgba(255,215,0,0.05); padding: 10px; }
+        .summary-box { margin-top: 30px; padding: 20px; border-radius: 15px; text-align: center; font-size: 1.2em; border: 2px double; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 style="color:var(--accent); text-shadow: 0 0 15px var(--accent); letter-spacing: 5px;">✦ 大 師 神 諭 ✦</h1>
+    <div class="control-panel">
+        <select id="spreadSelect" style="background:#222; color:#fff; padding:10px;">
+            <option value="yesno">天啟決策 (Yes/No)</option>
+            <option value="3">三時空 (過去/現在/未來)</option>
+            <option value="love">感情讀心 (互動與建議)</option>
+        </select>
+        <button class="primary" onclick="draw()">開啟啟示</button>
+    </div>
+    <div id="board"></div>
+    <div id="report"><div id="reportContent"></div></div>
+</div>
+
+<script>
+// ==== 78張全手寫大師數據庫：徹底告別罐頭文字 ====
+const fullDeck = [
+    // 大阿爾卡納 (22)
+    {n:"愚者", s:"🃏", w:0.1, u:"純真、新冒險、無限可能", r:"魯莽、缺乏計畫、逃避責任"},
+    {n:"魔術師", s:"🪄", w:0.5, u:"創造力、掌握資源、展現才華", r:"能力誤用、溝通障礙、幻術欺瞞"},
+    {n:"女祭司", s:"🌙", w:0.2, u:"直覺、內在智慧、神秘知識", r:"流言蜚語、忽視直覺、淺薄"},
+    {n:"皇后", s:"👸", w:0.6, u:"豐盛、自然魅力、生命力", r:"創造力受阻、過度依賴、浪費"},
+    {n:"皇帝", s:"👑", w:0.4, u:"權威、紀律、建立秩序", r:"專橫、缺乏自律、結構崩潰"},
+    {n:"教皇", s:"🕍", w:0.3, u:"傳統、信仰、導師指引", r:"反叛陳規、虛偽教條、錯誤引導"},
+    {n:"戀人", s:"❤️", w:0.5, u:"契合、價值觀選擇、和諧", r:"關係失衡、錯誤決定、分離"},
+    {n:"戰車", s:"🛡️", w:0.6, u:"意志力、勝利、控制方向", r:"失去控制、侵略性過強、失敗"},
+    {n:"力量", s:"🦁", w:0.6, u:"內在勇氣、耐心、柔克剛", r:"自我懷疑、恐懼、情緒失控"},
+    {n:"隱士", s:"🕯️", w:-0.1, u:"內省、獨處、尋求真理", r:"孤立、迷失、與世隔絕"},
+    {n:"命運之輪", s:"🎡", w:0.5, u:"轉機、好運循環、擴張", r:"外部阻礙、突發逆境、停滯"},
+    {n:"正義", s:"⚖️", w:0.2, u:"公平、真相、法律平衡", r:"不公、偏見、虛假指控"},
+    {n:"吊人", s:"🦶", w:-0.2, u:"犧牲、換位思考、暫停", r:"徒勞無功、頑固抗拒、拖延"},
+    {n:"死神", s:"💀", w:-1.0, u:"深刻轉化、告別、重生", r:"停滯、抗拒改變、腐朽"},
+    {n:"節制", s:"🍷", w:0.5, u:"調和、平衡、療癒過程", r:"失衡、缺乏耐心、極端行為"},
+    {n:"惡魔", s:"😈", w:-0.8, u:"束縛、慾望陷阱、物質主義", r:"覺醒、釋放負累、重獲自由"},
+    {n:"高塔", s:"⚡", w:-1.2, u:"意外崩塌、震撼、揭開真相", r:"延遲的災難、恐懼餘震、困局"},
+    {n:"星星", s:"✨", w:0.8, u:"希望、靈感、平靜的療癒", r:"灰心、失落、缺乏目標"},
+    {n:"月亮", s:"🌖", w:-0.4, u:"不安、隱藏的危機、幻象", r:"真相顯露、消除恐懼、平息"},
+    {n:"太陽", s:"☀️", w:1.2, u:"成功、喜悅、純粹的快樂", r:"短暫陰影、熱情減退、傲慢"},
+    {n:"審判", s:"🎺", w:0.6, u:"召喚、覺醒、重大新生", r:"猶豫、逃避使命、自責"},
+    {n:"世界", s:"🌍", w:1.0, u:"圓滿、達成目標、旅程終點", r:"未完成、停滯、整合失敗"},
+
+    // 錢幣 (14) - 包含錢幣4專屬鎖定
+    {n:"錢幣王牌", s:"🌱", w:0.6, u:"新財富機緣、穩定基礎", r:"錯失商機、基礎不牢"},
+    {n:"錢幣2", s:"🌱", w:0.2, u:"靈活運作、平衡多重任務", r:"波動過大、應接不暇"},
+    {n:"錢幣3", s:"🌱", w:0.5, u:"團隊協作、專業認可", r:"缺乏共識、技術平庸"},
+    {n:"錢幣4", s:"🌱", w:0.1, u:"穩固掌控、守護財產", r:"失去控制或學會放手"}, 
+    {n:"錢幣5", s:"🌱", w:-0.6, u:"貧乏困境、尋求援助", r:"走出荒蕪、轉機浮現"},
+    {n:"錢幣6", s:"🌱", w:0.4, u:"慷慨施與、資源共享", r:"不對等的依賴、吝嗇"},
+    {n:"錢幣7", s:"🌱", w:0.3, u:"耐心耕耘、評估成果", r:"焦慮不安、徒勞無功"},
+    {n:"錢幣8", s:"🌱", w:0.6, u:"專注雕琢、職業精神", r:"盲目忙碌、技術受限"},
+    {n:"錢幣9", s:"🌱", w:0.7, u:"獨立富足、高品質生活", r:"虛假繁榮、孤寂感"},
+    {n:"錢幣10", s:"🌱", w:0.8, u:"傳承、家族繁榮、永恆穩定", r:"財務糾紛、基礎動搖"},
+    {n:"錢幣侍者", s:"🌱", w:0.3, u:"勤奮學習、務實消息", r:"漫不經心、計畫停滯"},
+    {n:"錢幣騎士", s:"🌱", w:0.4, u:"踏實可靠、穩步推進", r:"墨守成規、行動力停滯"},
+    {n:"錢幣皇后", s:"🌱", w:0.7, u:"溫暖滋潤、理財智慧", r:"自我懷疑、過度現實"},
+    {n:"錢幣國王", s:"🌱", w:0.8, u:"卓越成就、財富帝國", r:"腐敗平庸、物質主義"},
+
+    // 聖杯 (14) - 包含聖杯騎士專屬鎖定
+    {n:"聖杯王牌", s:"💧", w:0.6, u:"情感萌芽、靈性洗滌", r:"情感枯竭、拒絕交流"},
+    {n:"聖杯2", s:"💧", w:0.7, u:"契合、平等交流、吸引力", r:"誤解、爭執、信任瓦解"},
+    {n:"聖杯3", s:"💧", w:0.5, u:"慶祝、友誼、社交圓滿", r:"小團體隔閡、過度享樂"},
+    {n:"聖杯4", s:"💧", w:-0.2, u:"冷淡、靜思、忽視機會", r:"重新出發、接受邀約"},
+    {n:"聖杯5", s:"💧", w:-0.5, u:"悲傷、失落、遺憾", r:"接受現實、療癒悲慟"},
+    {n:"聖杯6", s:"💧", w:0.4, u:"純真回憶、饋贈與關懷", r:"沈溺過去、無法成長"},
+    {n:"聖杯7", s:"💧", w:0.1, u:"幻象、多重選擇的迷茫", r:"看清現實、做出決定"},
+    {n:"聖杯8", s:"💧", w:-0.2, u:"追尋更高意義、離去", r:"遲疑不決、恐懼未知"},
+    {n:"聖杯9", s:"💧", w:0.8, u:"心滿意足、願望實現", r:"空虛感、過度膨脹"},
+    {n:"聖杯10", s:"💧", w:0.9, u:"家庭和諧、情感歸宿", r:"表面和平、關係疏離"},
+    {n:"聖杯侍者", s:"💧", w:0.3, u:"感性訊息、創意思維", r:"情感脆弱、空想"},
+    {n:"聖杯騎士", s:"💧", w:0.4, u:"浪漫邀約、追求理想", r:"虛情假意或情緒化的陷阱"},
+    {n:"聖杯皇后", s:"💧", w:0.6, u:"直覺敏銳、溫柔慈悲", r:"情緒勒索、過度敏感"},
+    {n:"聖杯國王", s:"💧", w:0.7, u:"情感大師、睿智穩定", r:"沈默冷暴力、情感操弄"},
+
+    // 權杖 (14)
+    {n:"權杖王牌", s:"🔥", w:0.7, u:"意志爆發、新行動啟航", r:"缺乏熱情、動力不足"},
+    {n:"權杖2", s:"🔥", w:0.4, u:"展望未來、權衡藍圖", r:"迷茫不安、計畫受挫"},
+    {n:"權杖3", s:"🔥", w:0.6, u:"擴張版圖、信心遠航", r:"期待落空、合作失敗"},
+    {n:"權杖4", s:"🔥", w:0.8, u:"穩固和諧、慶祝階段勝利", r:"基礎不穩、內部分裂"},
+    {n:"權杖5", s:"🔥", w:-0.3, u:"紛擾競爭、角逐衝突", r:"終結紛爭、達成和解"},
+    {n:"權杖6", s:"🔥", w:0.8, u:"勝利回歸、獲得認可", r:"虛假榮譽、從巔峰跌落"},
+    {n:"權杖7", s:"🔥", w:0.5, u:"堅守立場、勇氣對抗", r:"退縮棄守、孤立無援"},
+    {n:"權杖8", s:"🔥", w:0.6, u:"迅速行動、好消息抵達", r:"混亂急躁、溝通延誤"},
+    {n:"權杖9", s:"🔥", w:0.4, u:"最後守衛、韌性考驗", r:"筋疲力盡、意志瓦解"},
+    {n:"權杖10", s:"🔥", w:-0.6, u:"重壓負荷、過度承諾", r:"釋放壓力、學會授權"},
+    {n:"權杖侍者", s:"🔥", w:0.4, u:"探索熱情、冒險消息", r:"三分鐘熱度、焦慮"},
+    {n:"權杖騎士", s:"🔥", w:0.6, u:"熱血衝刺、無畏挑戰", r:"魯莽衝突、缺乏耐心"},
+    {n:"權杖皇后", s:"🔥", w:0.8, u:"自信積極、魅力領袖", r:"跋扈失控、妒忌"},
+    {n:"權杖國王", s:"🔥", w:0.9, u:"願景領袖、強大控制力", r:"獨裁、冷酷、缺乏執行"},
+
+    // 寶劍 (14) - 包含寶劍6專屬鎖定
+    {n:"寶劍王牌", s:"🌪️", w:0.5, u:"理智利刃、新思想突破", r:"思維混亂、決定錯誤"},
+    {n:"寶劍2", s:"🌪️", w:-0.1, u:"逃避、心靈僵局", r:"打破平衡、面對現實"},
+    {n:"寶劍3", s:"🌪️", w:-0.8, u:"心碎傷痛、深刻清醒", r:"釋放傷感、慢慢復原"},
+    {n:"寶劍4", s:"🌪️", w:0.2, u:"休息靜思、精神修復", r:"被迫行動、能量枯竭"},
+    {n:"寶劍5", s:"🌪️", w:-0.5, u:"慘烈勝利、人際衝突", r:"終結鬥爭、兩敗俱傷"},
+    {n:"寶劍6", s:"🌪️", w:0.0, u:"渡過難關、漸入佳境", r:"受困原地、無法自拔、心靈僵局"},
+    {n:"寶劍7", s:"🌪️", w:0.1, u:"策略謀劃、隱密行事", r:"真相被揭、策略失效"},
+    {n:"寶劍8", s:"🌪️", w:-0.6, u:"束手無策、思想囚牢", r:"掙脫束縛、尋找出路"},
+    {n:"寶劍9", s:"🌪️", w:-0.7, u:"焦慮噩夢、精神重壓", r:"黎明將至、走出陰霾"},
+    {n:"寶劍10", s:"🌪️", w:-1.2, u:"絕對終結、絕境重生", r:"起死回生、餘震未歇"},
+    {n:"寶劍侍者", s:"🌪️", w:0.2, u:"警覺訊息、敏銳分析", r:"流言蜚語、諷刺刺探"},
+    {n:"寶劍騎士", s:"🌪️", w:0.3, u:"果斷行動、理智衝刺", r:"急躁傷人、思想盲目"},
+    {n:"寶劍皇后", s:"🌪️", w:0.6, u:"犀利洞察、專業獨立", r:"冷酷偏見、言詞刻刻"},
+    {n:"寶劍國王", s:"🌪️", w:0.7, u:"公正裁決、理智巔峰", r:"專斷殘酷、權力腐敗"}
+];
+
+function draw() {
+    const spreadKey = document.getElementById('spreadSelect').value;
+    const configs = { 
+        "yesno":["天啟判定"], 
+        "3":["過去","現在","未來"], 
+        "love":["你的狀態","對方的狀態","互動能量","核心障礙","大師建議"] 
+    };
+    const labels = configs[spreadKey];
+    const selected = [...fullDeck].sort(() => 0.5 - Math.random()).slice(0, labels.length);
+    
+    let totalYes = 0;
+    const board = document.getElementById('board');
+    const reportContent = document.getElementById('reportContent');
+    board.innerHTML = ""; reportContent.innerHTML = `<h2 style="text-align:center; color:var(--accent);">✦ 大 師 神 諭 ✦</h2>`;
+    document.getElementById('report').style.display = 'block';
+
+    selected.forEach((card, i) => {
+        const isRev = Math.random() > 0.5;
+        let prob = isRev ? 0.15 : 0.85;
+        let finalProb = Math.max(0.02, Math.min(0.98, prob + (card.weight || 0)));
+        const isYes = Math.random() < finalProb;
+        if(isYes) totalYes++;
+
+        board.innerHTML += `
+            <div class="card ${isRev?'reversed':''}">
+                <div style="font-size:3em;">${card.s}</div>
+                <div style="font-weight:bold;margin-top:10px;">${card.n}</div>
+                <div style="font-size:0.85em;color:var(--primary)">${isRev?'逆位':'正位'}</div>
+            </div>`;
+
+        const currentMeaning = isRev ? card.r : card.u;
+        let masterQuote = isYes 
+            ? `此時星空展現了「${currentMeaning}」的正向流動。大師見證了這股光芒，你可以信賴你的選擇。` 
+            : `目前這股「${currentMeaning}」的能量被遮蔽。大師告誡：逆風而行必會受創，沈默是目前的答案。`;
+
+        reportContent.innerHTML += `
+            <div class="oracle-item">
+                <span class="tag">✦ ${labels[i]} ✦</span>
+                <strong>${card.n} (${isRev?'逆位':'正位'})</strong>
+                <p>牌義解析：${currentMeaning}</p>
+                ${spreadKey==='yesno' ? `<p style="color:${isYes?'var(--accent)':'#ff4d4d'}">判定結果：<strong>${isYes?'Yes':'No'}</strong></p>` : ''}
+                <p class="master-quote">${masterQuote}</p>
+            </div>`;
+    });
+
+    const ratio = totalYes / labels.length;
+    let sText, sColor;
+    if(ratio >= 0.7) { sText = "大師結論：順應天命，此行必成。"; sColor = "var(--accent)"; }
+    else if(ratio >= 0.4) { sText = "大師結論：吉凶參半，守成為上。"; sColor = "var(--primary)"; }
+    else { sText = "大師結論：星光黯淡，切莫強求。"; sColor = "#ff4d4d"; }
+
+    reportContent.innerHTML += `<div class="summary-box" style="border-color:${sColor}; color:${sColor};">${sText}</div>`;
+    window.scrollTo({ top: board.offsetTop - 50, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
