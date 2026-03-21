@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 星空塔羅 - 大師直白版</title>
+    <style>
+        :root { --primary: #FFD700; --accent: #00CED1; --bg: #0a0f1d; --card-bg: rgba(15, 25, 45, 0.95); }
+        body { font-family: "微軟正黑體", sans-serif; background: radial-gradient(circle at center, #1b2735 0%, #080a0f 100%); color: #eee; margin: 0; padding: 20px; min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; text-align: center; }
+        .control-panel { background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 15px; border: 1px solid #444; margin-bottom: 30px; }
+        select, button { padding: 12px 20px; border-radius: 8px; border: none; font-size: 1em; cursor: pointer; transition: 0.3s; }
+        select { background: #222; color: #fff; border: 1px solid #444; margin: 5px; }
+        button.primary { background: var(--accent); color: #000; font-weight: bold; margin: 5px; }
+        button.primary:hover { box-shadow: 0 0 15px var(--accent); transform: scale(1.02); }
+        #board { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+        .card { width: 130px; padding: 20px; background: var(--card-bg); border: 2px solid #333; border-radius: 15px; transition: 0.6s; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .card.reversed { transform: rotate(180deg); border-color: #ff4d4d; }
+        #report { max-width: 700px; margin: 40px auto; background: rgba(0, 0, 0, 0.85); padding: 30px; border-radius: 20px; border: 1px solid #444; text-align: left; display: none; }
+        .oracle-item { border-bottom: 1px solid #333; padding: 20px 0; }
+        .tag { background: #333; color: var(--accent); padding: 3px 10px; border-radius: 5px; font-size: 0.85em; margin-right: 10px; font-weight: bold; border: 1px solid var(--accent); }
+        .meaning { color: #aaa; font-style: italic; display: block; margin: 10px 0; border-left: 3px solid var(--accent); padding-left: 10px; }
+        .summary-box { margin-top: 25px; padding: 20px; border-radius: 12px; font-weight: bold; text-align: center; font-size: 1.1em; border: 2px solid; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 style="color:var(--accent); text-shadow: 0 0 15px var(--accent);">✦ AI 星空啟示 ✦</h1>
+    <div class="control-panel">
+        <select id="spreadSelect">
+            <option value="yesno">Yes or No (精準決策)</option>
+            <option value="1">單張靈感 (今日指引)</option>
+            <option value="3">時空三陣 (過去/現在/未來)</option>
+            <option value="love">感情讀心 (互動與障礙)</option>
+        </select>
+        <button class="primary" onclick="draw()">開啟啟示</button>
+    </div>
+    <div id="board"></div>
+    <div id="report"><div id="reportContent"></div></div>
+</div>
+
+<script>
+// ==== 1. 大師牌庫 (含強效權重) ====
+const tarotData = {
+    majors: {
+        0: { n: "愚者", s: "🃏", w: 0.1, u: "新開始、冒險", r: "魯莽、缺乏計畫" },
+        1: { n: "魔術師", s: "🪄", w: 0.5, u: "行動、資源掌控", r: "能量受阻、欺瞞" },
+        13: { n: "死神", s: "💀", w: -0.9, u: "結束、徹底轉化", r: "抗拒改變、停滯" },
+        16: { n: "高塔", s: "⚡", w: -1.0, u: "劇變、意外瓦解", r: "受困殘骸、餘震" },
+        19: { n: "太陽", s: "☀️", w: 1.0, u: "成功、極致喜悅", r: "短暫低潮、熱情消退" },
+        21: { n: "世界", s: "🌍", w: 0.9, u: "圓滿、達成目標", r: "未完成、欠缺臨門一腳" }
+    },
+    suits: {
+        "權杖": { s: "🔥", b: 0.2, k: {1:"新契機", 5:"競爭衝突", 10:"過度負荷"} },
+        "聖杯": { s: "💧", b: 0.1, k: {1:"情感萌芽", 5:"悲傷失落", 10:"情感圓滿"} },
+        "寶劍": { s: "🌪️", b: -0.3, k: {1:"理智開端", 3:"心碎痛苦", 10:"絕對終結"} },
+        "錢幣": { s: "🌱", b: 0.15, k: {1:"財務機會", 5:"貧乏困境", 10:"物質豐盛"} }
+    }
+};
+
+let deck = [];
+function init() {
+    Object.values(tarotData.majors).forEach(m => deck.push({ name: m.n, sym: m.s, weight: m.w, up: m.u, rev: m.r }));
+    const ranks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "侍者", "騎士", "皇后", "國王"];
+    for (let s in tarotData.suits) {
+        let suit = tarotData.suits[s];
+        ranks.forEach(r => {
+            let n = (r === 1) ? `${s}王牌` : `${s}${r}`;
+            let key = suit.k[r] || `${s}的發展`;
+            let w = suit.b + ([1, 3, 10].includes(r) ? 0.2 : ([5, 8, 9].includes(r) ? -0.2 : 0));
+            // 特殊懲罰：寶劍10是小牌中的高塔
+            if (s === "寶劍" && r === 10) w = -0.95;
+            deck.push({ name: n, sym: suit.s, weight: w, up: key, rev: `${key}(受阻)` });
+        });
+    }
+}
+init();
+
+// ==== 2. 抽牌與靈魂邏輯 ====
+function draw() {
+    const spreadKey = document.getElementById('spreadSelect').value;
+    const configs = { "yesno":["決策"],"1":["指引"],"3":["過去","現在","未來"],"love":["你","他","互動","障礙","建議"] };
+    const labels = configs[spreadKey];
+    const selected = [...deck].sort(() => 0.5 - Math.random()).slice(0, labels.length);
+    
+    let yesCount = 0;
+    const board = document.getElementById('board');
+    const reportContent = document.getElementById('reportContent');
+    board.innerHTML = ""; reportContent.innerHTML = `<h3 style="text-align:center; color:var(--accent);">✦ 大 師 啟 示 ✦</h3>`;
+    document.getElementById('report').style.display = 'block';
+
+    selected.forEach((card, i) => {
+        const isRev = Math.random() > 0.5;
+        
+        // 核心：正位強關聯(0.8) vs 逆位強關聯(0.2) + 牌面權重修正
+        let prob = isRev ? 0.2 : 0.8;
+        let finalProb = Math.max(0, Math.min(1, prob + (card.weight || 0)));
+        const isYes = Math.random() < finalProb;
+        if(isYes) yesCount++;
+
+        // UI 渲染
+        board.innerHTML += `<div class="card ${isRev?'reversed':''}">
+            <div style="font-size:2.8em;">${card.sym}</div>
+            <div style="font-weight:bold;margin-top:10px;color:#fff;">${card.name}</div>
+            <div style="font-size:0.85em;color:var(--primary)">${isRev?'逆位':'正位'}</div>
+        </div>`;
+
+        // 解讀 (確保導引絕對符合 Yes/No)
+        let itemHtml = `<div class="oracle-item">
+            <strong>【${labels[i]}】${card.name} (${isRev?'逆位':'正位'})</strong>
+            <span class="meaning">大師牌義：${isRev ? card.rev : card.up}</span>`;
+        
+        if (spreadKey === 'yesno') {
+            itemHtml += `<p><span class="tag">判定</span><strong style="color:${isYes?'var(--accent)':'#ff4d4d'}">${isYes?'YES':'NO'}</strong></p>`;
+        }
+
+        const advice = isYes ? "能量順遂，符合預期，可大膽執行。" : "能量受阻，存在明顯隱憂，建議觀望。";
+        itemHtml += `<p><span class="tag">導引</span>${advice}</p></div>`;
+        reportContent.innerHTML += itemHtml;
+    });
+
+    // 3. 直白大師總結 (全盤判定)
+    const ratio = yesCount / labels.length;
+    let sText, sColor;
+    if (ratio >= 0.7) { sText = "結論：大好時機，直接去做。"; sColor = "var(--accent)"; }
+    else if (ratio >= 0.4) { sText = "結論：有好有壞，謹慎前行。"; sColor = "var(--primary)"; }
+    else { sText = "結論：阻礙重重，建議撤退。"; sColor = "#ff4d4d"; }
+
+    reportContent.innerHTML += `<div class="summary-box" style="border-color:${sColor}; color:${sColor};">
+        ${sText}
+    </div>`;
+    
+    window.scrollTo({ top: board.offsetTop - 50, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
